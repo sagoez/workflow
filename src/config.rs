@@ -60,7 +60,6 @@ pub fn load_config() -> Result<Config> {
         serde_yaml::from_str(&content)
             .with_context(|| "Failed to parse config file")
     } else {
-        // Return default config and save it
         let config = Config::default();
         save_config(&config)?;
         Ok(config)
@@ -71,7 +70,6 @@ pub fn load_config() -> Result<Config> {
 pub fn save_config(config: &Config) -> Result<()> {
     let config_path = get_config_file_path()?;
     
-    // Create config directory if it doesn't exist
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create config directory: {}", parent.display()))?;
@@ -91,17 +89,14 @@ pub fn init_config_dirs() -> Result<()> {
     let config_dir = get_config_dir()?;
     let i18n_dir = get_i18n_dir()?;
     
-    // Create directories
     fs::create_dir_all(&config_dir)
         .with_context(|| format!("Failed to create config directory: {}", config_dir.display()))?;
     
     fs::create_dir_all(&i18n_dir)
         .with_context(|| format!("Failed to create i18n directory: {}", i18n_dir.display()))?;
     
-    // Copy default translation files if they don't exist
     copy_default_translations(&i18n_dir)?;
     
-    // Create default config if it doesn't exist
     if !get_config_file_path()?.exists() {
         save_config(&Config::default())?;
     }
@@ -111,7 +106,6 @@ pub fn init_config_dirs() -> Result<()> {
 
 /// Copy default translation files to the user's config directory
 fn copy_default_translations(i18n_dir: &Path) -> Result<()> {
-    // English translations
     let en_file = i18n_dir.join("en.yaml");
     if !en_file.exists() {
         let en_content = include_str!("../config/i18n/en.yaml");
@@ -119,7 +113,6 @@ fn copy_default_translations(i18n_dir: &Path) -> Result<()> {
             .with_context(|| format!("Failed to write English translations: {}", en_file.display()))?;
     }
     
-    // Spanish translations
     let es_file = i18n_dir.join("es.yaml");
     if !es_file.exists() {
         let es_content = include_str!("../config/i18n/es.yaml");

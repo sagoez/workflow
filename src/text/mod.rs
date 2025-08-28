@@ -74,7 +74,6 @@ static TEXT_CACHE: OnceLock<HashMap<Language, TextMap>> = OnceLock::new();
 
 /// Load text mappings for a specific language
 fn load_language_texts(lang: Language) -> TextMap {
-    // Try to load from user config directory first
     if let Ok(i18n_dir) = config::get_i18n_dir() {
         let config_path = i18n_dir.join(format!("{}.yaml", lang.code()));
         
@@ -98,7 +97,6 @@ fn load_language_texts(lang: Language) -> TextMap {
         }
     }
     
-    // Fallback to embedded translations
     let embedded_content = match lang {
         Language::English => include_str!("../../config/i18n/en.yaml"),
         Language::Spanish => include_str!("../../config/i18n/es.yaml"),
@@ -127,7 +125,6 @@ fn load_language_texts(lang: Language) -> TextMap {
 fn init_text_cache() -> HashMap<Language, TextMap> {
     let mut cache = HashMap::new();
     
-    // Load all supported languages
     cache.insert(Language::English, load_language_texts(Language::English));
     cache.insert(Language::Spanish, load_language_texts(Language::Spanish));
     
@@ -154,7 +151,6 @@ pub fn get_text_lang(key: &str, lang: Language) -> String {
         }
     }
     
-    // Fallback to English if key not found in target language
     if lang != Language::English {
         if let Some(en_map) = cache.get(&Language::English) {
             if let Some(text) = en_map.get(key) {
@@ -175,7 +171,6 @@ pub fn get_text_with_params(key: &str, params: &[&str]) -> String {
 pub fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> String {
     let template = get_text_lang(key, lang);
     
-    // Simple parameter substitution: {0}, {1}, {2}, etc.
     let mut result = template;
     for (i, param) in params.iter().enumerate() {
         result = result.replace(&format!("{{{}}}", i), param);
@@ -186,7 +181,6 @@ pub fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> 
 
 /// Get the current language from configuration
 pub fn current_language() -> Language {
-    // Try to get language from config file, fallback to default
     config::get_current_language()
         .ok()
         .and_then(|lang_code| Language::from_code(&lang_code))
