@@ -11,11 +11,12 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
-use std::time::Duration;
 use tera::{Context, Tera};
 use dialoguer::{Input, Select};
 use anyhow::{Result, Context as AnyhowContext};
-use indicatif::{ProgressBar, ProgressStyle, ProgressIterator};
+use indicatif::{ProgressBar, ProgressIterator};
+
+pub mod text;
 
 /// Represents a complete workflow definition parsed from YAML.
 ///
@@ -204,32 +205,25 @@ impl Workflow {
     /// # }
     /// ```
     pub async fn execute(&self) -> Result<()> {
-        println!("🚀 Executing workflow: {}", self.name);
-        println!("📝 {}", self.description);
-        println!();
+        print!("{}", text::t_params("execution_workflow_header", &[&self.name, &self.description]));
 
         let pb = ProgressBar::new(self.arguments.len() as u64);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} {msg}")
-                .unwrap()
-                .progress_chars("#>-"),
-        );
-        pb.set_message("Collecting arguments...");
+        pb.set_style(text::spinners::progress_bar_style());
+        pb.set_message(text::t("progress_collecting_arguments"));
 
         let mut argument_values = HashMap::new();
         
         for arg in self.arguments.iter().progress_with(pb.clone()) {
-            pb.set_message(format!("Resolving '{}'", arg.name));
+            pb.set_message(text::t_params("progress_resolving_argument", &[&arg.name]));
             let value = self.resolve_argument(arg).await?;
             argument_values.insert(arg.name.clone(), value);
         }
         
-        pb.finish_with_message("✅ All arguments collected");
+        pb.finish_with_message(text::t("progress_all_arguments_collected"));
 
         let final_command = self.render_command(&argument_values)?;
         
-        println!("\n💻 Executing command:");
+        println!("{}", text::t("command_executing_header"));
         println!("{}", final_command);
         println!();
 
@@ -256,7 +250,7 @@ impl Workflow {
                 if let (Some(enum_command), Some(enum_name)) = (&arg.enum_command, &arg.enum_name) {
                     self.resolve_enum_argument(arg, enum_command, enum_name).await
                 } else {
-                    anyhow::bail!("Enum argument '{}' missing enum_command or enum_name", arg.name);
+                    anyhow::bail!(text::t_params("enum_args_missing_config", &[&arg.name]));
                 }
             }
             ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => {
@@ -282,24 +276,20 @@ impl Workflow {
     /// * `Err(anyhow::Error)` - Command execution failure or user interaction error
     async fn resolve_enum_argument(&self, arg: &WorkflowArgument, enum_command: &str, _enum_name: &str) -> Result<String> {
         let spinner = ProgressBar::new_spinner();
-        spinner.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.green} {msg}")
-                .unwrap()
-        );
-        spinner.set_message(format!("🔍 Getting options for '{}'...", arg.name));
-        spinner.enable_steady_tick(Duration::from_millis(100));
+        spinner.set_style(text::spinners::enum_spinner_style());
+        spinner.set_message(text::t_params("enum_args_getting_options", &[&arg.name]));
+        spinner.enable_steady_tick(std::time::Duration::from_millis(100));
         
         let output = Command::new("sh")
             .arg("-c")
             .arg(enum_command)
             .output()
-            .with_context(|| format!("Failed to execute enum command: {}", enum_command))?;
+            .with_context(|| text::t_params("errors_enum_command_execution_failed", &[enum_command]))?;
 
         spinner.finish_and_clear();
 
         if !output.status.success() {
-            anyhow::bail!("Enum command failed: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(text::t_params("enum_args_command_failed", &[&String::from_utf8_lossy(&output.stderr)]));
         }
 
         let options: Vec<String> = String::from_utf8(output.stdout)?
@@ -309,15 +299,15 @@ impl Workflow {
             .collect();
 
         if options.is_empty() {
-            anyhow::bail!("No options found for argument '{}'", arg.name);
+            anyhow::bail!(text::t_params("enum_args_no_options_found", &[&arg.name]));
         }
 
         let selection = Select::new()
-            .with_prompt(&format!("{}: {}", arg.name, arg.description))
+            .with_prompt(&text::t_params("enum_args_selection_prompt", &[&arg.name, &arg.description]))
             .items(&options)
             .default(0)
             .interact()
-            .with_context(|| "Failed to get user selection")?;
+            .with_context(|| text::t("errors_selection_failed"))?;
 
         Ok(options[selection].clone())
     }
@@ -337,7 +327,7 @@ impl Workflow {
     /// * `Err(anyhow::Error)` - User interaction error
     fn resolve_simple_argument(&self, arg: &WorkflowArgument) -> Result<String> {
         let mut input = Input::<String>::new()
-            .with_prompt(&format!("{}: {}", arg.name, arg.description));
+            .with_prompt(&text::t_params("simple_args_input_prompt", &[&arg.name, &arg.description]));
 
         if let Some(default) = &arg.default_value {
             if !default.is_empty() && default != "~" {
@@ -345,7 +335,7 @@ impl Workflow {
             }
         }
 
-        input.interact().with_context(|| format!("Failed to get input for argument '{}'", arg.name))
+        input.interact().with_context(|| text::t_params("simple_args_input_failed", &[&arg.name]))
     }
 
     /// Render the command template by substituting argument values.
@@ -373,7 +363,7 @@ impl Workflow {
         }
 
         tera.render_str(&self.command, &context)
-            .with_context(|| "Failed to render command template")
+            .with_context(|| text::t("templates_render_failed"))
     }
 
     /// Execute the final rendered command and display results.
@@ -392,13 +382,9 @@ impl Workflow {
     /// * `Err(anyhow::Error)` - Command failed or execution error
     async fn run_command(&self, command: &str) -> Result<()> {
         let spinner = ProgressBar::new_spinner();
-        spinner.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.blue} {msg}")
-                .unwrap()
-        );
-        spinner.set_message("⚡ Executing command...");
-        spinner.enable_steady_tick(Duration::from_millis(100));
+        spinner.set_style(text::spinners::command_spinner_style());
+        spinner.set_message(text::t("command_executing_spinner"));
+        spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
         let child = tokio::process::Command::new("sh")
             .arg("-c")
@@ -406,26 +392,27 @@ impl Workflow {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .with_context(|| "Failed to spawn command")?;
+            .with_context(|| text::t("errors_spawn_failed"))?;
 
         let output = child.wait_with_output().await
-            .with_context(|| "Failed to wait for command")?;
+            .with_context(|| text::t("errors_wait_failed"))?;
 
         spinner.finish_and_clear();
 
         if output.status.success() {
             if !output.stdout.is_empty() {
-                println!("✅ Output:");
+                println!("{}", text::t("command_success_output"));
                 println!("{}", String::from_utf8_lossy(&output.stdout));
             }
-            println!("✅ Workflow completed successfully!");
+            println!("{}", text::t("command_success_complete"));
         } else {
-            println!("❌ Command failed with exit code: {:?}", output.status.code());
+            let exit_code = output.status.code().map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string());
+            println!("{}", text::t_params("command_failed_with_code", &[&exit_code]));
             if !output.stderr.is_empty() {
-                println!("Error output:");
+                println!("{}", text::t("command_error_output"));
                 println!("{}", String::from_utf8_lossy(&output.stderr));
             }
-            anyhow::bail!("Command execution failed");
+            anyhow::bail!(text::t("errors_execution_failed"));
         }
 
         Ok(())

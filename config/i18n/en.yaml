@@ -1,0 +1,41 @@
+# English language configuration
+# Keys are always in English, values are localized
+
+# Progress messages
+progress_collecting_arguments: "Collecting arguments..."
+progress_all_arguments_collected: "✅ All arguments collected"
+progress_resolving_argument: "Resolving '{0}'"
+
+# Command execution
+command_executing_header: "\n💻 Executing command:"
+command_executing_spinner: "⚡ Executing command..."
+command_success_output: "✅ Output:"
+command_success_complete: "✅ Workflow completed successfully!"
+command_error_output: "Error output:"
+command_failed_with_code: "❌ Command failed with exit code: {0}"
+command_failed: "❌ Command failed"
+
+# Enum arguments
+enum_args_getting_options: "🔍 Getting options for '{0}'..."
+enum_args_selection_prompt: "{0}: {1}"
+enum_args_no_options_found: "No options found for argument '{0}'"
+enum_args_command_failed: "Enum command failed: {0}"
+enum_args_missing_config: "Enum argument '{0}' missing enum_command or enum_name"
+
+# Simple arguments
+simple_args_input_prompt: "{0}: {1}"
+simple_args_input_failed: "Failed to get input for argument '{0}'"
+
+# Templates
+templates_tera_instance_failed: "Failed to create Tera instance"
+templates_render_failed: "Failed to render command template"
+
+# Errors
+errors_enum_command_execution_failed: "Failed to execute enum command: {0}"
+errors_spawn_failed: "Failed to spawn command"
+errors_wait_failed: "Failed to wait for command"
+errors_execution_failed: "Command execution failed"
+errors_selection_failed: "Failed to get user selection"
+
+# Execution flow
+execution_workflow_header: "🚀 Executing workflow: {0}\n📝 {1}\n"
