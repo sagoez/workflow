@@ -1,0 +1,23 @@
+---
+name: Repeat Bash Command
+command: "for i in $(seq 1 {{times}}); do echo \"Execution $i:\"; {{bash_command}}; done"
+description: Execute a bash command a specified number of times with execution counter
+arguments:
+  - name: bash_command
+    arg_type: Text
+    description: The bash command to execute
+    default_value: ~
+  - name: times
+    arg_type: Text
+    description: Number of times to repeat the command
+    default_value: "1"
+tags:
+  - bash
+  - repeat
+  - loop
+source_url: ~
+author: ~
+author_url: ~
+shells:
+  - Bash
+  - Zsh
