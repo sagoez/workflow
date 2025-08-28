@@ -105,20 +105,17 @@ pub fn init_config_dirs() -> Result<()> {
 }
 
 /// Copy default translation files to the user's config directory
+/// Always updates existing files to ensure new translation keys are available
 fn copy_default_translations(i18n_dir: &Path) -> Result<()> {
     let en_file = i18n_dir.join("en.yaml");
-    if !en_file.exists() {
-        let en_content = include_str!("../config/i18n/en.yaml");
-        fs::write(&en_file, en_content)
-            .with_context(|| format!("Failed to write English translations: {}", en_file.display()))?;
-    }
+    let en_content = include_str!("../config/i18n/en.yaml");
+    fs::write(&en_file, en_content)
+        .with_context(|| format!("Failed to write English translations: {}", en_file.display()))?;
     
     let es_file = i18n_dir.join("es.yaml");
-    if !es_file.exists() {
-        let es_content = include_str!("../config/i18n/es.yaml");
-        fs::write(&es_file, es_content)
-            .with_context(|| format!("Failed to write Spanish translations: {}", es_file.display()))?;
-    }
+    let es_content = include_str!("../config/i18n/es.yaml");
+    fs::write(&es_file, es_content)
+        .with_context(|| format!("Failed to write Spanish translations: {}", es_file.display()))?;
     
     Ok(())
 }

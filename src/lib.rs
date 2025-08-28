@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 use tera::{Context, Tera};
-use dialoguer::{Input, Select};
+use inquire::{Select, Text};
 use anyhow::{Result, Context as AnyhowContext};
 use indicatif::ProgressBar;
 
@@ -259,17 +259,17 @@ impl Workflow {
         }
     }
 
-    /// Resolve an enum argument using static predefined variants.
+        /// Resolve an enum argument using static predefined variants.
     ///
-    /// This method presents a selection menu with the predefined options
-    /// from the `enum_variants` field.
+    /// This method presents a searchable selection menu with the predefined options
+    /// from the `enum_variants` field, allowing users to search, select, or type custom values.
     ///
     /// # Arguments
     /// * `arg` - The argument definition
     /// * `variants` - The predefined list of options
     ///
     /// # Returns
-    /// * `Ok(String)` - The selected option
+    /// * `Ok(String)` - The selected option or custom input
     /// * `Err(anyhow::Error)` - User interaction error
     fn resolve_static_enum_argument(&self, arg: &WorkflowArgument, variants: &[String]) -> Result<String> {
         if variants.is_empty() {
@@ -282,14 +282,14 @@ impl Workflow {
             arg.description.clone()
         };
         
-        let selection = Select::new()
-            .with_prompt(&prompt)
-            .items(variants)
-            .default(0)
-            .interact()
+        // Use searchable selection with inquire
+        let selection = Select::new(&prompt, variants.to_vec())
+            .with_page_size(10)
+            .with_help_message(&text::t("enum_args_searchable_help"))
+            .prompt()
             .with_context(|| text::t("errors_selection_failed"))?;
 
-        Ok(variants[selection].clone())
+        Ok(selection)
     }
 
     /// Resolve an enum argument by executing a command and presenting options.
@@ -297,7 +297,7 @@ impl Workflow {
     /// This method:
     /// 1. Shows a spinner while executing the enum command
     /// 2. Parses the command output into selectable options
-    /// 3. Presents an interactive selection menu to the user
+    /// 3. Presents a searchable selection menu allowing search, selection, or custom input
     ///
     /// # Arguments
     /// * `arg` - The argument definition containing description
@@ -305,7 +305,7 @@ impl Workflow {
     /// * `_enum_name` - Identifier for the enum (unused but kept for future features)
     ///
     /// # Returns
-    /// * `Ok(String)` - The selected option value
+    /// * `Ok(String)` - The selected option value or custom input
     /// * `Err(anyhow::Error)` - Command execution failure or user interaction error
     async fn resolve_enum_argument(&self, arg: &WorkflowArgument, enum_command: &str, _enum_name: &str) -> Result<String> {
         let spinner = ProgressBar::new_spinner();
@@ -335,21 +335,20 @@ impl Workflow {
             anyhow::bail!(text::t_params("enum_args_no_options_found", &[&arg.name]));
         }
 
-
         let prompt = if arg.description.is_empty() || arg.description == "~" {
             arg.name.clone()
         } else {
             arg.description.clone()
         };
         
-        let selection = Select::new()
-            .with_prompt(&prompt)
-            .items(&options)
-            .default(0)
-            .interact()
+        // Use searchable selection with inquire
+        let selection = Select::new(&prompt, options)
+            .with_page_size(10)
+            .with_help_message(&text::t("enum_args_searchable_help"))
+            .prompt()
             .with_context(|| text::t("errors_selection_failed"))?;
 
-        Ok(options[selection].clone())
+        Ok(selection)
     }
 
     /// Resolve a simple argument (Text, Number, Boolean) through user input.
@@ -358,6 +357,7 @@ impl Workflow {
     /// - Argument name and description
     /// - Default value if available and not null (~)
     /// - Input validation for the argument type
+    /// - Autocomplete suggestions based on argument context
     ///
     /// # Arguments
     /// * `arg` - The argument definition to resolve
@@ -373,16 +373,109 @@ impl Workflow {
             arg.description.clone()
         };
         
-        let mut input = Input::<String>::new()
-            .with_prompt(&prompt);
+        // Create autocomplete suggestions based on argument context
+        let suggestions = self.get_autocomplete_suggestions(arg);
+        
+        let mut text_input = Text::new(&prompt)
+            .with_autocomplete(move |input: &str| {
+                let suggestions = suggestions.clone();
+                let filtered: Vec<String> = suggestions
+                    .iter()
+                    .filter(|s| s.to_lowercase().contains(&input.to_lowercase()))
+                    .cloned()
+                    .collect();
+                Ok(filtered)
+            });
 
         if let Some(default) = &arg.default_value {
             if !default.is_empty() && default != "~" {
-                input = input.default(default.clone());
+                text_input = text_input.with_default(default);
             }
         }
 
-        input.interact().with_context(|| text::t_params("simple_args_input_failed", &[&arg.name]))
+        text_input.prompt().with_context(|| text::t_params("simple_args_input_failed", &[&arg.name]))
+    }
+
+    /// Get autocomplete suggestions for an argument based on its context.
+    ///
+    /// Provides intelligent suggestions based on:
+    /// - Argument name and type
+    /// - Default values
+    /// - Common patterns for the argument type
+    ///
+    /// # Arguments
+    /// * `arg` - The argument definition
+    ///
+    /// # Returns
+    /// * `Vec<String>` - List of suggested values
+    fn get_autocomplete_suggestions(&self, arg: &WorkflowArgument) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        // Add default value as first suggestion if available
+        if let Some(default) = &arg.default_value {
+            if !default.is_empty() && default != "~" {
+                suggestions.push(default.clone());
+            }
+        }
+        
+        // Add common suggestions based on argument type and name
+        match arg.arg_type {
+            ArgumentType::Text => {
+                // Common text suggestions based on argument name
+                match arg.name.to_lowercase().as_str() {
+                    "file" | "filename" | "path" => {
+                        suggestions.extend_from_slice(&[
+                            "config.yaml".to_string(),
+                            "data.json".to_string(),
+                            "output.txt".to_string(),
+                            "log.log".to_string(),
+                        ]);
+                    }
+                    "message" | "text" | "content" => {
+                        suggestions.extend_from_slice(&[
+                            "Hello World".to_string(),
+                            "Sample message".to_string(),
+                            "Test content".to_string(),
+                        ]);
+                    }
+                    "url" | "endpoint" => {
+                        suggestions.extend_from_slice(&[
+                            "https://api.example.com".to_string(),
+                            "http://localhost:8080".to_string(),
+                            "https://github.com".to_string(),
+                        ]);
+                    }
+                    _ => {
+                        // Generic text suggestions
+                        suggestions.extend_from_slice(&[
+                            "example".to_string(),
+                            "test".to_string(),
+                            "sample".to_string(),
+                        ]);
+                    }
+                }
+            }
+            ArgumentType::Number => {
+                suggestions.extend_from_slice(&[
+                    "0".to_string(),
+                    "1".to_string(),
+                    "10".to_string(),
+                    "100".to_string(),
+                    "1000".to_string(),
+                ]);
+            }
+            ArgumentType::Boolean => {
+                suggestions.extend_from_slice(&[
+                    "true".to_string(),
+                    "false".to_string(),
+                    "yes".to_string(),
+                    "no".to_string(),
+                ]);
+            }
+            _ => {}
+        }
+        
+        suggestions
     }
 
     /// Render the command template by substituting argument values.

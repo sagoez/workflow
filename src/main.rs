@@ -33,7 +33,7 @@ use std::fs;
 use std::path::Path;
 use anyhow::{Result, Context};
 use workflow::{Workflow, text, config};
-use dialoguer::{theme::ColorfulTheme, Select};
+use inquire::Select;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -344,20 +344,23 @@ fn show_interactive_workflow_menu(workflows: &[(String, Workflow, String)]) -> R
         .map(|(_, workflow, _)| format!("🔧 {}", workflow.name))
         .collect();
 
-    let selection = Select::with_theme(&ColorfulTheme::default())
-        .with_prompt(text::t("cli_select_prompt"))
-        .items(&workflow_names)
-        .default(0)
-        .interact()
+    let selection = Select::new(&text::t("cli_select_prompt"), workflow_names)
+        .with_page_size(10)
+        .prompt()
         .with_context(|| "Failed to show workflow selection")?;
 
-    let (_, selected_workflow, _) = &workflows[selection];
+    // Find the index of the selected workflow
+    let selection_index = workflows.iter().position(|(_, workflow, _)| {
+        format!("🔧 {}", workflow.name) == selection
+    }).unwrap_or(0);
+
+    let (_, selected_workflow, _) = &workflows[selection_index];
     println!();
     println!("{}", text::t_params("cli_selected_workflow", &[&selected_workflow.name]));
     println!("{}", text::t_params("cli_workflow_description", &[&selected_workflow.description]));
     println!("{}", text::t_params("cli_workflow_arguments", &[&selected_workflow.arguments.len().to_string()]));
     
-    Ok(selection)
+    Ok(selection_index)
 }
 
 

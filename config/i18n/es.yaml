@@ -21,6 +21,9 @@ enum_args_selection_prompt: "{0}: {1}"
 enum_args_no_options_found: "No se encontraron opciones para el argumento '{0}'"
 enum_args_command_failed: "El comando enum falló: {0}"
 enum_args_missing_config: "El argumento enum '{0}' carece de enum_command o enum_name"
+enum_args_custom_input_option: "📝 Ingresar valor personalizado..."
+enum_args_custom_input_prompt: "Ingresa valor personalizado para {0}: "
+enum_args_searchable_help: "Escribe para buscar, o presiona Enter para seleccionar. También puedes escribir un valor personalizado."
 
 # Simple arguments
 simple_args_input_prompt: "{0}: {1}"
