@@ -1,0 +1,24 @@
+---
+name: Show a continuous stream of Kubernetes logs
+command: "kubectl logs -f {{pod_name}} -n {{namespace}}"
+tags:
+  - kubernetes
+description: "Continuously streams logs from a given Kubernetes pod by using the `-f` flag."
+arguments:
+  - name: namespace
+    arg_type: Enum
+    enum_name: namespaces
+    enum_command: "kubectl get namespaces | awk 'NR>1 {print $1}'"
+    description: Namespace to get pods from
+    default_value: ~
+  - name: pod_name
+    description: The Pod name to stream logs from
+    arg_type: Enum
+    enum_name: pod_names
+    enum_command: "kubectl get pods -n {{namespace}} --no-headers | awk '{print $1}'"
+    dynamic_resolution: namespace
+    default_value: ~
+source_url: "https://stackoverflow.com/questions/39454962/kubectl-logs-continuously"
+author: Yu-Ju Hong
+author_url: "https://stackoverflow.com/users/5265822/yu-ju-hong"
+shells: []

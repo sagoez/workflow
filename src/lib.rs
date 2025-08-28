@@ -103,6 +103,8 @@ pub struct WorkflowArgument {
     pub enum_command: Option<String>,
     /// For Enum type: static list of predefined options
     pub enum_variants: Option<Vec<String>>,
+    /// For Enum type: name of the argument to reference for dynamic resolution in enum_command
+    pub dynamic_resolution: Option<String>,
 }
 
 /// Returns the default argument type when not specified in YAML.
@@ -214,7 +216,7 @@ impl Workflow {
         let mut argument_values = HashMap::new();
         
         for arg in &self.arguments {
-            let value = self.resolve_argument(arg).await?;
+            let value = self.resolve_argument(arg, &argument_values).await?;
             argument_values.insert(arg.name.clone(), value);
         }
 
@@ -237,11 +239,12 @@ impl Workflow {
     ///
     /// # Arguments
     /// * `arg` - The argument definition to resolve
+    /// * `current_values` - Currently resolved argument values for dynamic resolution
     ///
     /// # Returns
     /// * `Ok(String)` - The resolved argument value
     /// * `Err(anyhow::Error)` - Error during resolution
-    async fn resolve_argument(&self, arg: &WorkflowArgument) -> Result<String> {
+    async fn resolve_argument(&self, arg: &WorkflowArgument, current_values: &HashMap<String, String>) -> Result<String> {
         match arg.arg_type {
             ArgumentType::Enum => {
                 if let Some(enum_variants) = &arg.enum_variants {
@@ -249,7 +252,7 @@ impl Workflow {
                     self.resolve_static_enum_argument(arg, enum_variants)
                 } else if let (Some(enum_command), Some(enum_name)) = (&arg.enum_command, &arg.enum_name) {
                     // Dynamic enum via command
-                    self.resolve_enum_argument(arg, enum_command, enum_name).await
+                    self.resolve_enum_argument(arg, enum_command, enum_name, current_values).await
                 } else {
                     anyhow::bail!(text::t_params("enum_args_missing_config", &[&arg.name]));
                 }
@@ -299,26 +302,40 @@ impl Workflow {
     /// 1. Shows a spinner while executing the enum command
     /// 2. Parses the command output into selectable options
     /// 3. Presents a searchable selection menu allowing search, selection, or custom input
+    /// 4. Supports dynamic resolution using previously resolved arguments
     ///
     /// # Arguments
     /// * `arg` - The argument definition containing description
     /// * `enum_command` - Shell command to execute to get options
     /// * `_enum_name` - Identifier for the enum (unused but kept for future features)
+    /// * `current_values` - Currently resolved argument values for dynamic resolution
     ///
     /// # Returns
     /// * `Ok(String)` - The selected option value or custom input
     /// * `Err(anyhow::Error)` - Command execution failure or user interaction error
-    async fn resolve_enum_argument(&self, arg: &WorkflowArgument, enum_command: &str, _enum_name: &str) -> Result<String> {
+    async fn resolve_enum_argument(&self, arg: &WorkflowArgument, enum_command: &str, _enum_name: &str, current_values: &HashMap<String, String>) -> Result<String> {
         let spinner = ProgressBar::new_spinner();
         spinner.set_style(text::spinners::enum_spinner_style());
         spinner.set_message(text::t_params("enum_args_getting_options", &[&arg.name]));
         spinner.enable_steady_tick(std::time::Duration::from_millis(100));
         
+        // Handle dynamic resolution if specified
+        let resolved_command = if let Some(ref_arg) = &arg.dynamic_resolution {
+            if let Some(ref_value) = current_values.get(ref_arg) {
+                // Substitute the referenced argument value in the enum_command
+                enum_command.replace(&format!("{{{{{}}}}}", ref_arg), ref_value)
+            } else {
+                anyhow::bail!("Dynamic resolution failed: referenced argument '{}' not found", ref_arg);
+            }
+        } else {
+            enum_command.to_string()
+        };
+        
         let output = Command::new("sh")
             .arg("-c")
-            .arg(enum_command)
+            .arg(&resolved_command)
             .output()
-            .with_context(|| text::t_params("errors_enum_command_execution_failed", &[enum_command]))?;
+            .with_context(|| text::t_params("errors_enum_command_execution_failed", &[&resolved_command]))?;
 
         spinner.finish_and_clear();
 
@@ -430,37 +447,16 @@ impl Workflow {
     /// * `Ok(())` - Command executed successfully (exit code 0)
     /// * `Err(anyhow::Error)` - Command failed or execution error
     async fn run_command(&self, command: &str) -> Result<()> {
-        let spinner = ProgressBar::new_spinner();
-        spinner.set_style(text::spinners::command_spinner_style());
-        spinner.set_message(text::t("command_executing_spinner"));
-        spinner.enable_steady_tick(std::time::Duration::from_millis(100));
-
-        let child = tokio::process::Command::new("sh")
+        let status = tokio::process::Command::new("sh")
             .arg("-c")
             .arg(command)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .status()
+            .await
             .with_context(|| text::t("errors_spawn_failed"))?;
 
-        let output = child.wait_with_output().await
-            .with_context(|| text::t("errors_wait_failed"))?;
-
-        spinner.finish_and_clear();
-
-        if output.status.success() {
-            if !output.stdout.is_empty() {
-                println!("{}", text::t("command_success_output"));
-                println!("{}", String::from_utf8_lossy(&output.stdout));
-            }
-            println!("{}", text::t("command_success_complete"));
-        } else {
-            let exit_code = output.status.code().map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string());
+        if !status.success() {
+            let exit_code = status.code().map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string());
             println!("{}", text::t_params("command_failed_with_code", &[&exit_code]));
-            if !output.stderr.is_empty() {
-                println!("{}", text::t("command_error_output"));
-                println!("{}", String::from_utf8_lossy(&output.stderr));
-            }
             anyhow::bail!(text::t("errors_execution_failed"));
         }
 
