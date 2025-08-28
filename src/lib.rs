@@ -14,7 +14,7 @@ use std::process::{Command, Stdio};
 use tera::{Context, Tera};
 use dialoguer::{Input, Select};
 use anyhow::{Result, Context as AnyhowContext};
-use indicatif::{ProgressBar, ProgressIterator};
+use indicatif::ProgressBar;
 
 pub mod text;
 pub mod config;
@@ -100,6 +100,8 @@ pub struct WorkflowArgument {
     pub enum_name: Option<String>,
     /// For Enum type: command to execute to get available options
     pub enum_command: Option<String>,
+    /// For Enum type: static list of predefined options
+    pub enum_variants: Option<Vec<String>>,
 }
 
 /// Returns the default argument type when not specified in YAML.
@@ -208,19 +210,12 @@ impl Workflow {
     pub async fn execute(&self) -> Result<()> {
         print!("{}", text::t_params("execution_workflow_header", &[&self.name, &self.description]));
 
-        let pb = ProgressBar::new(self.arguments.len() as u64);
-        pb.set_style(text::spinners::progress_bar_style());
-        pb.set_message(text::t("progress_collecting_arguments"));
-
         let mut argument_values = HashMap::new();
         
-        for arg in self.arguments.iter().progress_with(pb.clone()) {
-            pb.set_message(text::t_params("progress_resolving_argument", &[&arg.name]));
+        for arg in &self.arguments {
             let value = self.resolve_argument(arg).await?;
             argument_values.insert(arg.name.clone(), value);
         }
-        
-        pb.finish_with_message(text::t("progress_all_arguments_collected"));
 
         let final_command = self.render_command(&argument_values)?;
         
@@ -248,7 +243,11 @@ impl Workflow {
     async fn resolve_argument(&self, arg: &WorkflowArgument) -> Result<String> {
         match arg.arg_type {
             ArgumentType::Enum => {
-                if let (Some(enum_command), Some(enum_name)) = (&arg.enum_command, &arg.enum_name) {
+                if let Some(enum_variants) = &arg.enum_variants {
+                    // Static enum variants
+                    self.resolve_static_enum_argument(arg, enum_variants)
+                } else if let (Some(enum_command), Some(enum_name)) = (&arg.enum_command, &arg.enum_name) {
+                    // Dynamic enum via command
                     self.resolve_enum_argument(arg, enum_command, enum_name).await
                 } else {
                     anyhow::bail!(text::t_params("enum_args_missing_config", &[&arg.name]));
@@ -258,6 +257,39 @@ impl Workflow {
                 self.resolve_simple_argument(arg)
             }
         }
+    }
+
+    /// Resolve an enum argument using static predefined variants.
+    ///
+    /// This method presents a selection menu with the predefined options
+    /// from the `enum_variants` field.
+    ///
+    /// # Arguments
+    /// * `arg` - The argument definition
+    /// * `variants` - The predefined list of options
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The selected option
+    /// * `Err(anyhow::Error)` - User interaction error
+    fn resolve_static_enum_argument(&self, arg: &WorkflowArgument, variants: &[String]) -> Result<String> {
+        if variants.is_empty() {
+            anyhow::bail!(text::t_params("enum_args_no_options_found", &[&arg.name]));
+        }
+
+        let prompt = if arg.description.is_empty() || arg.description == "~" {
+            arg.name.clone()
+        } else {
+            arg.description.clone()
+        };
+        
+        let selection = Select::new()
+            .with_prompt(&prompt)
+            .items(variants)
+            .default(0)
+            .interact()
+            .with_context(|| text::t("errors_selection_failed"))?;
+
+        Ok(variants[selection].clone())
     }
 
     /// Resolve an enum argument by executing a command and presenting options.
@@ -303,8 +335,15 @@ impl Workflow {
             anyhow::bail!(text::t_params("enum_args_no_options_found", &[&arg.name]));
         }
 
+
+        let prompt = if arg.description.is_empty() || arg.description == "~" {
+            arg.name.clone()
+        } else {
+            arg.description.clone()
+        };
+        
         let selection = Select::new()
-            .with_prompt(&text::t_params("enum_args_selection_prompt", &[&arg.name, &arg.description]))
+            .with_prompt(&prompt)
             .items(&options)
             .default(0)
             .interact()
@@ -327,8 +366,15 @@ impl Workflow {
     /// * `Ok(String)` - The user-provided or default value
     /// * `Err(anyhow::Error)` - User interaction error
     fn resolve_simple_argument(&self, arg: &WorkflowArgument) -> Result<String> {
+
+        let prompt = if arg.description.is_empty() || arg.description == "~" {
+            arg.name.clone()
+        } else {
+            arg.description.clone()
+        };
+        
         let mut input = Input::<String>::new()
-            .with_prompt(&text::t_params("simple_args_input_prompt", &[&arg.name, &arg.description]));
+            .with_prompt(&prompt);
 
         if let Some(default) = &arg.default_value {
             if !default.is_empty() && default != "~" {

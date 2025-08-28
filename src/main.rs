@@ -206,6 +206,11 @@ async fn list_workflows() -> Result<()> {
             
             let file_name = path.file_name().ok_or(anyhow::anyhow!("Failed to get file name"))?.to_str().ok_or(anyhow::anyhow!("Failed to get file name"))?;
             
+            // Skip config.yaml as it's not a workflow file
+            if file_name == "config.yaml" {
+                continue;
+            }
+            
             match fs::read_to_string(&path) {
                 Ok(content) => {
                     match Workflow::from_yaml(&content) {
@@ -292,6 +297,11 @@ async fn select_and_execute_workflow() -> Result<()> {
            path.extension().and_then(|s| s.to_str()) == Some("yml") {
             
             let file_name = path.file_name().ok_or(anyhow::anyhow!("Failed to get file name"))?.to_str().ok_or(anyhow::anyhow!("Failed to get file name"))?;
+            
+            // Skip config.yaml as it's not a workflow file
+            if file_name == "config.yaml" {
+                continue;
+            }
             
             match fs::read_to_string(&path) {
                 Ok(content) => {
