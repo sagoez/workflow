@@ -18,6 +18,7 @@ use indicatif::ProgressBar;
 
 pub mod text;
 pub mod config;
+pub mod autocomplete;
 
 /// Represents a complete workflow definition parsed from YAML.
 ///
@@ -357,7 +358,6 @@ impl Workflow {
     /// - Argument name and description
     /// - Default value if available and not null (~)
     /// - Input validation for the argument type
-    /// - Autocomplete suggestions based on argument context
     ///
     /// # Arguments
     /// * `arg` - The argument definition to resolve
@@ -373,19 +373,8 @@ impl Workflow {
             arg.description.clone()
         };
         
-        // Create autocomplete suggestions based on argument context
-        let suggestions = self.get_autocomplete_suggestions(arg);
-        
         let mut text_input = Text::new(&prompt)
-            .with_autocomplete(move |input: &str| {
-                let suggestions = suggestions.clone();
-                let filtered: Vec<String> = suggestions
-                    .iter()
-                    .filter(|s| s.to_lowercase().contains(&input.to_lowercase()))
-                    .cloned()
-                    .collect();
-                Ok(filtered)
-            });
+            .with_autocomplete(autocomplete::FilePathCompleter::default());
 
         if let Some(default) = &arg.default_value {
             if !default.is_empty() && default != "~" {
@@ -396,87 +385,7 @@ impl Workflow {
         text_input.prompt().with_context(|| text::t_params("simple_args_input_failed", &[&arg.name]))
     }
 
-    /// Get autocomplete suggestions for an argument based on its context.
-    ///
-    /// Provides intelligent suggestions based on:
-    /// - Argument name and type
-    /// - Default values
-    /// - Common patterns for the argument type
-    ///
-    /// # Arguments
-    /// * `arg` - The argument definition
-    ///
-    /// # Returns
-    /// * `Vec<String>` - List of suggested values
-    fn get_autocomplete_suggestions(&self, arg: &WorkflowArgument) -> Vec<String> {
-        let mut suggestions = Vec::new();
-        
-        // Add default value as first suggestion if available
-        if let Some(default) = &arg.default_value {
-            if !default.is_empty() && default != "~" {
-                suggestions.push(default.clone());
-            }
-        }
-        
-        // Add common suggestions based on argument type and name
-        match arg.arg_type {
-            ArgumentType::Text => {
-                // Common text suggestions based on argument name
-                match arg.name.to_lowercase().as_str() {
-                    "file" | "filename" | "path" => {
-                        suggestions.extend_from_slice(&[
-                            "config.yaml".to_string(),
-                            "data.json".to_string(),
-                            "output.txt".to_string(),
-                            "log.log".to_string(),
-                        ]);
-                    }
-                    "message" | "text" | "content" => {
-                        suggestions.extend_from_slice(&[
-                            "Hello World".to_string(),
-                            "Sample message".to_string(),
-                            "Test content".to_string(),
-                        ]);
-                    }
-                    "url" | "endpoint" => {
-                        suggestions.extend_from_slice(&[
-                            "https://api.example.com".to_string(),
-                            "http://localhost:8080".to_string(),
-                            "https://github.com".to_string(),
-                        ]);
-                    }
-                    _ => {
-                        // Generic text suggestions
-                        suggestions.extend_from_slice(&[
-                            "example".to_string(),
-                            "test".to_string(),
-                            "sample".to_string(),
-                        ]);
-                    }
-                }
-            }
-            ArgumentType::Number => {
-                suggestions.extend_from_slice(&[
-                    "0".to_string(),
-                    "1".to_string(),
-                    "10".to_string(),
-                    "100".to_string(),
-                    "1000".to_string(),
-                ]);
-            }
-            ArgumentType::Boolean => {
-                suggestions.extend_from_slice(&[
-                    "true".to_string(),
-                    "false".to_string(),
-                    "yes".to_string(),
-                    "no".to_string(),
-                ]);
-            }
-            _ => {}
-        }
-        
-        suggestions
-    }
+
 
     /// Render the command template by substituting argument values.
     ///
