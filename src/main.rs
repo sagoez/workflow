@@ -28,12 +28,12 @@
 //! The CLI looks for workflow YAML files in the `resource/` directory relative to the
 //! current working directory. Files can have `.yaml` or `.yml` extensions.
 
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use inquire::Select;
 use std::fs;
 use std::path::Path;
-use anyhow::{Result, Context};
-use workflow::{Workflow, text, config};
-use inquire::Select;
+use workflow::{Workflow, config, text};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -111,8 +111,8 @@ async fn main() -> Result<()> {
             file_path.to_string()
         } else {
             // Look in the workflows config directory
-            let workflows_dir = config::get_workflows_dir()
-                .context("Failed to get workflows directory")?;
+            let workflows_dir =
+                config::get_workflows_dir().context("Failed to get workflows directory")?;
             workflows_dir.join(file_path).to_string_lossy().to_string()
         };
         execute_workflow(&full_path).await
@@ -180,9 +180,8 @@ async fn execute_workflow(file_path: &str) -> Result<()> {
 /// Invalid YAML files are skipped with a warning message rather than causing
 /// the entire operation to fail.
 async fn list_workflows() -> Result<()> {
-    let workflows_dir = config::get_workflows_dir()
-        .context("Failed to get workflows directory")?;
-    
+    let workflows_dir = config::get_workflows_dir().context("Failed to get workflows directory")?;
+
     if !workflows_dir.exists() {
         println!("{}", text::t("dir_no_resource_directory"));
         println!("{}", text::t("init_tip_run_init"));
@@ -192,36 +191,38 @@ async fn list_workflows() -> Result<()> {
     println!("📋 {}", text::t("cli_available_workflows"));
     println!();
 
-    let entries = fs::read_dir(&workflows_dir)
-        .with_context(|| text::t("error_failed_to_read_dir"))?;
+    let entries =
+        fs::read_dir(&workflows_dir).with_context(|| text::t("error_failed_to_read_dir"))?;
 
     let mut workflows = Vec::new();
 
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
-        
-        if path.extension().and_then(|s| s.to_str()) == Some("yaml") || 
-           path.extension().and_then(|s| s.to_str()) == Some("yml") {
-            
-            let file_name = path.file_name().ok_or(anyhow::anyhow!("Failed to get file name"))?.to_str().ok_or(anyhow::anyhow!("Failed to get file name"))?;
-            
+
+        if path.extension().and_then(|s| s.to_str()) == Some("yaml")
+            || path.extension().and_then(|s| s.to_str()) == Some("yml")
+        {
+            let file_name = path
+                .file_name()
+                .ok_or(anyhow::anyhow!("Failed to get file name"))?
+                .to_str()
+                .ok_or(anyhow::anyhow!("Failed to get file name"))?;
+
             // Skip config.yaml as it's not a workflow file
             if file_name == "config.yaml" {
                 continue;
             }
-            
+
             match fs::read_to_string(&path) {
-                Ok(content) => {
-                    match Workflow::from_yaml(&content) {
-                        Ok(workflow) => {
-                            workflows.push((file_name.to_string(), workflow));
-                        }
-                        Err(_) => {
-                            println!("⚠️  {} (invalid YAML)", file_name);
-                        }
+                Ok(content) => match Workflow::from_yaml(&content) {
+                    Ok(workflow) => {
+                        workflows.push((file_name.to_string(), workflow));
                     }
-                }
+                    Err(_) => {
+                        println!("⚠️  {} (invalid YAML)", file_name);
+                    }
+                },
                 Err(_) => {
                     println!("⚠️  {} (cannot read)", file_name);
                 }
@@ -239,7 +240,7 @@ async fn list_workflows() -> Result<()> {
             println!("   Arguments: {}", workflow.arguments.len());
             println!();
         }
-        
+
         println!("{}", text::t("list_usage_header"));
         println!("{}", text::t("list_usage_execute"));
         println!("{}", text::t("list_usage_example"));
@@ -277,45 +278,60 @@ async fn list_workflows() -> Result<()> {
 /// - Invalid YAML files: Skipped with warning messages
 /// - User cancellation: Graceful exit
 async fn select_and_execute_workflow() -> Result<()> {
-    let workflows_dir = config::get_workflows_dir()
-        .context("Failed to get workflows directory")?;
-    
+    let workflows_dir = config::get_workflows_dir().context("Failed to get workflows directory")?;
+
     if !workflows_dir.exists() {
-        anyhow::bail!("{}\n{}", text::t("dir_no_resource_directory"), text::t("init_tip_run_init"));
+        anyhow::bail!(
+            "{}\n{}",
+            text::t("dir_no_resource_directory"),
+            text::t("init_tip_run_init")
+        );
     }
 
-    let entries = fs::read_dir(&workflows_dir)
-        .with_context(|| text::t("error_failed_to_read_dir"))?;
+    let entries =
+        fs::read_dir(&workflows_dir).with_context(|| text::t("error_failed_to_read_dir"))?;
 
     let mut workflows = Vec::new();
 
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
-        
-        if path.extension().and_then(|s| s.to_str()) == Some("yaml") || 
-           path.extension().and_then(|s| s.to_str()) == Some("yml") {
-            
-            let file_name = path.file_name().ok_or(anyhow::anyhow!("Failed to get file name"))?.to_str().ok_or(anyhow::anyhow!("Failed to get file name"))?;
-            
+
+        if path.extension().and_then(|s| s.to_str()) == Some("yaml")
+            || path.extension().and_then(|s| s.to_str()) == Some("yml")
+        {
+            let file_name = path
+                .file_name()
+                .ok_or(anyhow::anyhow!("Failed to get file name"))?
+                .to_str()
+                .ok_or(anyhow::anyhow!("Failed to get file name"))?;
+
             // Skip config.yaml as it's not a workflow file
             if file_name == "config.yaml" {
                 continue;
             }
-            
+
             match fs::read_to_string(&path) {
-                Ok(content) => {
-                    match Workflow::from_yaml(&content) {
-                        Ok(workflow) => {
-                            workflows.push((file_name.to_string(), workflow, path.to_string_lossy().to_string()));
-                        }
-                        Err(_) => {
-                            println!("{}", text::t_params("file_skipping_invalid_yaml", &[file_name]));
-                        }
+                Ok(content) => match Workflow::from_yaml(&content) {
+                    Ok(workflow) => {
+                        workflows.push((
+                            file_name.to_string(),
+                            workflow,
+                            path.to_string_lossy().to_string(),
+                        ));
                     }
-                }
+                    Err(_) => {
+                        println!(
+                            "{}",
+                            text::t_params("file_skipping_invalid_yaml", &[file_name])
+                        );
+                    }
+                },
                 Err(_) => {
-                    println!("{}", text::t_params("file_skipping_cannot_read", &[file_name]));
+                    println!(
+                        "{}",
+                        text::t_params("file_skipping_cannot_read", &[file_name])
+                    );
                 }
             }
         }
@@ -331,14 +347,13 @@ async fn select_and_execute_workflow() -> Result<()> {
     let selection = show_interactive_workflow_menu(&workflows)?;
 
     let (_, _, file_path) = &workflows[selection];
-    
+
     println!();
     execute_workflow(file_path).await
 }
 
 /// Show an interactive workflow selection menu with arrow key navigation and toggle descriptions
 fn show_interactive_workflow_menu(workflows: &[(String, Workflow, String)]) -> Result<usize> {
-    
     let workflow_names: Vec<String> = workflows
         .iter()
         .map(|(_, workflow, _)| format!("🔧 {}", workflow.name))
@@ -350,42 +365,79 @@ fn show_interactive_workflow_menu(workflows: &[(String, Workflow, String)]) -> R
         .with_context(|| "Failed to show workflow selection")?;
 
     // Find the index of the selected workflow
-    let selection_index = workflows.iter().position(|(_, workflow, _)| {
-        format!("🔧 {}", workflow.name) == selection
-    }).unwrap_or(0);
+    let selection_index = workflows
+        .iter()
+        .position(|(_, workflow, _)| format!("🔧 {}", workflow.name) == selection)
+        .unwrap_or(0);
 
     let (_, selected_workflow, _) = &workflows[selection_index];
     println!();
-    println!("{}", text::t_params("cli_selected_workflow", &[&selected_workflow.name]));
-    println!("{}", text::t_params("cli_workflow_description", &[&selected_workflow.description]));
-    println!("{}", text::t_params("cli_workflow_arguments", &[&selected_workflow.arguments.len().to_string()]));
-    
+    println!(
+        "{}",
+        text::t_params("cli_selected_workflow", &[&selected_workflow.name])
+    );
+    println!(
+        "{}",
+        text::t_params(
+            "cli_workflow_description",
+            &[&selected_workflow.description]
+        )
+    );
+    println!(
+        "{}",
+        text::t_params(
+            "cli_workflow_arguments",
+            &[&selected_workflow.arguments.len().to_string()]
+        )
+    );
+
     Ok(selection_index)
 }
-
-
 
 /// Handle the init command - initialize configuration directories
 async fn handle_init_command() -> Result<()> {
     println!("{}", text::t("init_initializing"));
-    
-    config::init_config_dirs()
-        .context("Failed to initialize configuration directories")?;
-    
+
+    config::init_config_dirs().context("Failed to initialize configuration directories")?;
+
     let config_dir = config::get_config_dir()?;
     let workflows_dir = config::get_workflows_dir()?;
     let i18n_dir = config::get_i18n_dir()?;
-    
+
     println!("{}", text::t("init_success"));
-    println!("{}", text::t_params("init_config_dir", &[&config_dir.display().to_string()]));
-    println!("{}", text::t_params("init_workflows_dir", &[&workflows_dir.display().to_string()]));
-    println!("{}", text::t_params("init_i18n_dir", &[&i18n_dir.display().to_string()]));
+    println!(
+        "{}",
+        text::t_params("init_config_dir", &[&config_dir.display().to_string()])
+    );
+    println!(
+        "{}",
+        text::t_params(
+            "init_workflows_dir",
+            &[&workflows_dir.display().to_string()]
+        )
+    );
+    println!(
+        "{}",
+        text::t_params("init_i18n_dir", &[&i18n_dir.display().to_string()])
+    );
     println!();
     println!("{}", text::t("init_instructions_header"));
-    println!("{}", text::t_params("init_instructions_workflows", &[&workflows_dir.display().to_string()]));
-    println!("{}", text::t_params("init_instructions_translations", &[&i18n_dir.display().to_string()]));
+    println!(
+        "{}",
+        text::t_params(
+            "init_instructions_workflows",
+            &[&workflows_dir.display().to_string()]
+        )
+    );
+    println!(
+        "{}",
+        text::t_params(
+            "init_instructions_translations",
+            &[&i18n_dir.display().to_string()]
+        )
+    );
     println!("{}", text::t("init_instructions_language"));
-    
+
     Ok(())
 }
 
@@ -394,38 +446,42 @@ async fn handle_lang_command(command: &LangCommands) -> Result<()> {
     match command {
         LangCommands::Set { language } => {
             // Validate that the language exists
-            let available_languages = config::list_available_languages()
-                .context("Failed to list available languages")?;
-            
+            let available_languages =
+                config::list_available_languages().context("Failed to list available languages")?;
+
             if !available_languages.contains(language) {
-                anyhow::bail!(
-                    text::t_params("lang_unknown_language", &[language, &available_languages.join(", ")])
-                );
+                anyhow::bail!(text::t_params(
+                    "lang_unknown_language",
+                    &[language, &available_languages.join(", ")]
+                ));
             }
-            
-            config::set_language(language)
-                .context("Failed to set language")?;
-            
+
+            config::set_language(language).context("Failed to set language")?;
+
             println!("{}", text::t_params("lang_set_success", &[language]));
         }
         LangCommands::List => {
-            let languages = config::list_available_languages()
-                .context("Failed to list available languages")?;
-            
+            let languages =
+                config::list_available_languages().context("Failed to list available languages")?;
+
             let current = config::get_current_language().unwrap_or_else(|_| "en".to_string());
-            
+
             println!("{}", text::t("lang_available_header"));
             for lang in languages {
-                let marker = if lang == current { text::t("lang_current_marker") } else { "".to_string() };
+                let marker = if lang == current {
+                    text::t("lang_current_marker")
+                } else {
+                    "".to_string()
+                };
                 println!("  • {}{}", lang, marker);
             }
         }
         LangCommands::Current => {
-            let current = config::get_current_language()
-                .context("Failed to get current language")?;
+            let current =
+                config::get_current_language().context("Failed to get current language")?;
             println!("{}", text::t_params("lang_current_language", &[&current]));
         }
     }
-    
+
     Ok(())
 }
