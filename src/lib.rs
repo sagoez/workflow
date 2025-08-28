@@ -17,6 +17,7 @@ use anyhow::{Result, Context as AnyhowContext};
 use indicatif::{ProgressBar, ProgressIterator};
 
 pub mod text;
+pub mod config;
 
 /// Represents a complete workflow definition parsed from YAML.
 ///

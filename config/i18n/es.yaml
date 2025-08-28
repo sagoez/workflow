@@ -39,3 +39,51 @@ errors_selection_failed: "Error al obtener selección del usuario"
 
 # Execution flow
 execution_workflow_header: "🚀 Ejecutando flujo de trabajo: {0}\n📝 {1}\n"
+
+# Main CLI messages
+cli_available_workflows: "🔧 Flujos de trabajo disponibles:"
+cli_navigation_tip: "   💡 Usa las flechas ↑↓ para navegar, Enter para seleccionar, 'h' para ayuda"
+cli_select_prompt: "Selecciona un flujo de trabajo"
+cli_selected_workflow: "✅ Seleccionado: {0}"
+cli_workflow_description: "📝 {0}"
+cli_workflow_arguments: "🔧 Argumentos: {0}"
+cli_user_cancelled: "Usuario canceló la selección de flujo de trabajo"
+
+# Directory and file messages
+dir_no_resource_directory: "📁 No se encontró directorio resource. Crea 'resource/' y agrega tus archivos YAML de flujo de trabajo ahí."
+file_skipping_invalid_yaml: "⚠️  Omitiendo {0} (YAML inválido)"
+file_skipping_cannot_read: "⚠️  Omitiendo {0} (no se puede leer)"
+file_no_valid_workflows: "No se encontraron archivos de flujo de trabajo válidos en el directorio resource.\n¡Agrega archivos .yaml o .yml para comenzar!"
+file_workflow_not_found: "Archivo de flujo de trabajo no encontrado: {0}"
+
+# List command messages
+list_no_workflows: "No se encontraron archivos de flujo de trabajo válidos en el directorio resource.\n¡Agrega archivos .yaml o .yml para comenzar!"
+list_usage_header: "Uso:"
+list_usage_execute: "  workflow <nombrearchivo>      # Ejecutar un flujo de trabajo"
+list_usage_example: "  workflow \"Scale Kubernetes Pods.yaml\"  # Ejemplo"
+
+# File reading errors
+error_failed_to_read: "Error al leer archivo de flujo de trabajo: {0}"
+error_failed_to_parse: "Error al analizar YAML de flujo de trabajo: {0}"
+error_failed_to_read_dir: "Error al leer directorio resource"
+error_failed_to_get_selection: "Error al obtener selección de flujo de trabajo"
+error_failed_to_read_input: "Error al leer entrada"
+
+# Init command messages
+init_initializing: "Inicializando configuración de flujos de trabajo..."
+init_success: "✅ ¡Configuración inicializada!"
+init_config_dir: "📁 Directorio de configuración: {0}"
+init_workflows_dir: "📁 Directorio de flujos de trabajo: {0}"
+init_i18n_dir: "🌐 Directorio de traducciones: {0}"
+init_instructions_header: "Ahora puedes:"
+init_instructions_workflows: "  • Colocar tus archivos YAML de flujos de trabajo en {0}"
+init_instructions_translations: "  • Personalizar traducciones en {0}"
+init_instructions_language: "  • Establecer tu idioma con: workflow lang set <idioma>"
+init_tip_run_init: "💡 Ejecuta 'workflow init' para inicializar los directorios de configuración."
+
+# Language command messages
+lang_set_success: "✅ Idioma establecido a: {0}"
+lang_unknown_language: "Idioma desconocido '{0}'. Idiomas disponibles: {1}"
+lang_available_header: "Idiomas disponibles:"
+lang_current_marker: " (actual)"
+lang_current_language: "Idioma actual: {0}"

@@ -39,3 +39,51 @@ errors_selection_failed: "Failed to get user selection"
 
 # Execution flow
 execution_workflow_header: "🚀 Executing workflow: {0}\n📝 {1}\n"
+
+# Main CLI messages
+cli_available_workflows: "🔧 Available workflows:"
+cli_navigation_tip: "   💡 Use ↑↓ arrow keys to navigate, Enter to select, 'h' for help"
+cli_select_prompt: "Select a workflow"
+cli_selected_workflow: "✅ Selected: {0}"
+cli_workflow_description: "📝 {0}"
+cli_workflow_arguments: "🔧 Arguments: {0}"
+cli_user_cancelled: "User cancelled workflow selection"
+
+# Directory and file messages
+dir_no_resource_directory: "📁 No resource directory found. Create 'resource/' and add your workflow YAML files there."
+file_skipping_invalid_yaml: "⚠️  Skipping {0} (invalid YAML)"
+file_skipping_cannot_read: "⚠️  Skipping {0} (cannot read)"
+file_no_valid_workflows: "No valid workflow files found in the resource directory.\nAdd .yaml or .yml files to get started!"
+file_workflow_not_found: "Workflow file not found: {0}"
+
+# List command messages
+list_no_workflows: "No valid workflow files found in the resource directory.\nAdd .yaml or .yml files to get started!"
+list_usage_header: "Usage:"
+list_usage_execute: "  workflow <filename>           # Execute a workflow"
+list_usage_example: "  workflow \"Scale Kubernetes Pods.yaml\"  # Example"
+
+# File reading errors
+error_failed_to_read: "Failed to read workflow file: {0}"
+error_failed_to_parse: "Failed to parse workflow YAML: {0}"
+error_failed_to_read_dir: "Failed to read resource directory"
+error_failed_to_get_selection: "Failed to get workflow selection"
+error_failed_to_read_input: "Failed to read input"
+
+# Init command messages
+init_initializing: "Initializing workflow configuration..."
+init_success: "✅ Configuration initialized!"
+init_config_dir: "📁 Config directory: {0}"
+init_workflows_dir: "📁 Workflows directory: {0}"
+init_i18n_dir: "🌐 Translations directory: {0}"
+init_instructions_header: "You can now:"
+init_instructions_workflows: "  • Place your workflow YAML files in {0}"
+init_instructions_translations: "  • Customize translations in {0}"
+init_instructions_language: "  • Set your language with: workflow lang set <language>"
+init_tip_run_init: "💡 Run 'workflow init' to initialize configuration directories."
+
+# Language command messages
+lang_set_success: "✅ Language set to: {0}"
+lang_unknown_language: "Unknown language '{0}'. Available languages: {1}"
+lang_available_header: "Available languages:"
+lang_current_marker: " (current)"
+lang_current_language: "Current language: {0}"

@@ -29,6 +29,8 @@ use serde_yaml::Value;
 
 pub mod spinners;
 
+use crate::config;
+
 /// Supported languages
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
@@ -72,13 +74,14 @@ static TEXT_CACHE: OnceLock<HashMap<Language, TextMap>> = OnceLock::new();
 
 /// Load text mappings for a specific language
 fn load_language_texts(lang: Language) -> TextMap {
-    let config_path = format!("config/i18n/{}.yaml", lang.code());
-    
-    match std::fs::read_to_string(&config_path) {
-        Ok(content) => {
+    // Try to load from user config directory first
+    if let Ok(i18n_dir) = config::get_i18n_dir() {
+        let config_path = i18n_dir.join(format!("{}.yaml", lang.code()));
+        
+        if let Ok(content) = std::fs::read_to_string(&config_path) {
             match serde_yaml::from_str::<HashMap<String, Value>>(&content) {
                 Ok(yaml_map) => {
-                    yaml_map.into_iter()
+                    return yaml_map.into_iter()
                         .filter_map(|(k, v)| {
                             if let Value::String(s) = v {
                                 Some((k, s))
@@ -86,16 +89,35 @@ fn load_language_texts(lang: Language) -> TextMap {
                                 None
                             }
                         })
-                        .collect()
+                        .collect();
                 }
                 Err(e) => {
-                    eprintln!("Warning: Failed to parse {}: {}", config_path, e);
-                    HashMap::new()
+                    eprintln!("Warning: Failed to parse {}: {}", config_path.display(), e);
                 }
             }
         }
+    }
+    
+    // Fallback to embedded translations
+    let embedded_content = match lang {
+        Language::English => include_str!("../../config/i18n/en.yaml"),
+        Language::Spanish => include_str!("../../config/i18n/es.yaml"),
+    };
+    
+    match serde_yaml::from_str::<HashMap<String, Value>>(embedded_content) {
+        Ok(yaml_map) => {
+            yaml_map.into_iter()
+                .filter_map(|(k, v)| {
+                    if let Value::String(s) = v {
+                        Some((k, s))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
         Err(e) => {
-            eprintln!("Warning: Failed to load {}: {}", config_path, e);
+            eprintln!("Warning: Failed to parse embedded translations for {}: {}", lang.code(), e);
             HashMap::new()
         }
     }
@@ -162,20 +184,13 @@ pub fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> 
     result
 }
 
-/// Thread-local language setting for convenience
-use std::cell::RefCell;
-thread_local! {
-    static CURRENT_LANGUAGE: RefCell<Language> = RefCell::new(Language::default());
-}
-
-/// Set the current language for this thread
-pub fn set_language(lang: Language) {
-    CURRENT_LANGUAGE.with(|l| *l.borrow_mut() = lang);
-}
-
-/// Get the current language for this thread
+/// Get the current language from configuration
 pub fn current_language() -> Language {
-    CURRENT_LANGUAGE.with(|l| *l.borrow())
+    // Try to get language from config file, fallback to default
+    config::get_current_language()
+        .ok()
+        .and_then(|lang_code| Language::from_code(&lang_code))
+        .unwrap_or_default()
 }
 
 /// Convenience function to get text in current language
