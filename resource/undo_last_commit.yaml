@@ -1,0 +1,10 @@
+---
+name: Undo the last Git commit
+command: git reset HEAD~
+description: ~
+arguments: []
+tags: []
+source_url: ~
+author: ~
+author_url: ~
+shells: []

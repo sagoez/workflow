@@ -1,0 +1,19 @@
+---
+name: Kill Process Running on a Port
+command: "kill -9 $(lsof -i tcp:{{port}} | awk 'NR>1 {print $2}')"
+description: Kill a process running on a specified port
+arguments:
+  - name: port
+    arg_type: Text
+    description: The port to kill the process on
+    default_value: "8080"
+tags:
+  - bash
+  - kill
+  - process
+source_url: ~
+author: ~
+author_url: ~
+shells:
+  - Bash
+  - Zsh
