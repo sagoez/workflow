@@ -15,6 +15,7 @@ directories = "6.0.0"
 indicatif = "0.18.0"
 inquire = "0.7.5"
 fuzzy-matcher = "0.3"
+clipboard = "0.5"
 git2 = "0.20.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"

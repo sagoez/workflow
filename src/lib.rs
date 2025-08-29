@@ -11,6 +11,7 @@
 use std::{collections::HashMap, process::Command};
 
 use anyhow::{Context as AnyhowContext, Result};
+use clipboard::{ClipboardContext, ClipboardProvider};
 use indicatif::ProgressBar;
 use inquire::{Select, Text};
 use serde::{Deserialize, Serialize};
@@ -173,19 +174,14 @@ impl Workflow {
         serde_yaml::to_string(self)
     }
 
-    /// Execute the workflow by resolving all arguments and running the command.
+    /// Generate the command by resolving all arguments but don't execute it.
     ///
-    /// This is the main entry point for workflow execution. It performs the following steps:
-    /// 1. Display workflow information
-    /// 2. Resolve all arguments interactively (with progress indicators)
-    /// 3. Render the command template with resolved values
-    /// 4. Execute the final command
-    /// 5. Display results
+    /// This method is useful when you want to generate the command for manual execution,
+    /// allowing users to copy/paste, modify, or pipe the command as needed.
     ///
     /// # Returns
-    /// * `Ok(())` - Workflow executed successfully
-    /// * `Err(anyhow::Error)` - Error during argument resolution, template rendering, or command
-    ///   execution
+    /// * `Ok(String)` - The fully resolved command string
+    /// * `Err(anyhow::Error)` - Error during argument resolution or template rendering
     ///
     /// # Example
     /// ```rust,no_run
@@ -205,12 +201,18 @@ impl Workflow {
     /// "#;
     ///
     /// let workflow = Workflow::from_yaml(yaml)?;
-    /// workflow.execute().await?;
+    /// let command = workflow.generate_command().await?;
+    /// println!("Generated command: {}", command);
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn execute(&self) -> Result<()> {
-        print!("{}", text::t_params("execution_workflow_header", &[&self.name, &self.description]));
+    pub async fn generate_command(&self) -> Result<String> {
+        // Only show description if it's not empty or null
+        if self.description.is_empty() || self.description == "~" {
+            print!("{}", text::t_params("execution_workflow_generate_header_no_desc", &[&self.name]));
+        } else {
+            print!("{}", text::t_params("execution_workflow_generate_header", &[&self.name, &self.description]));
+        }
 
         let mut argument_values = HashMap::new();
 
@@ -221,13 +223,24 @@ impl Workflow {
 
         let final_command = self.render_command(&argument_values)?;
 
-        println!("{}", text::t("command_executing_header"));
-        println!("{}", final_command);
+        // Copy the command to clipboard
+        if let Ok(mut clipboard) = ClipboardContext::new() {
+            if let Err(e) = clipboard.set_contents(final_command.clone()) {
+                eprintln!("⚠️  {}", text::t_params("clipboard_copy_failed", &[&e.to_string()]));
+            } else {
+                println!("{}", text::t("command_copied_to_clipboard"));
+            }
+        } else {
+            eprintln!("⚠️  {}", text::t("clipboard_access_failed"));
+        }
+
+        // Show the command in a clean, copy-paste friendly format
         println!();
+        println!("$ {}", final_command);
+        println!();
+        println!("{}", text::t("command_ready_to_execute"));
 
-        self.run_command(&final_command).await?;
-
-        Ok(())
+        Ok(final_command)
     }
 
     /// Resolve a single argument based on its type.
@@ -429,37 +442,6 @@ impl Workflow {
         }
 
         tera.render_str(&self.command, &context).with_context(|| text::t("templates_render_failed"))
-    }
-
-    /// Execute the final rendered command and display results.
-    ///
-    /// This method:
-    /// 1. Shows a spinner while the command executes
-    /// 2. Captures both stdout and stderr
-    /// 3. Reports success/failure with appropriate messaging
-    /// 4. Displays command output if available
-    ///
-    /// # Arguments
-    /// * `command` - The fully rendered command string to execute
-    ///
-    /// # Returns
-    /// * `Ok(())` - Command executed successfully (exit code 0)
-    /// * `Err(anyhow::Error)` - Command failed or execution error
-    async fn run_command(&self, command: &str) -> Result<()> {
-        let status = tokio::process::Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .status()
-            .await
-            .with_context(|| text::t("errors_spawn_failed"))?;
-
-        if !status.success() {
-            let exit_code = status.code().map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string());
-            println!("{}", text::t_params("command_failed_with_code", &[&exit_code]));
-            anyhow::bail!(text::t("errors_execution_failed"));
-        }
-
-        Ok(())
     }
 }
 

@@ -5,9 +5,10 @@
 progress_collecting_arguments: "Collecting arguments..."
 
 # Command execution
-command_executing_header: "\n💻 Executing command:"
-command_failed_with_code: "❌ Command failed with exit code: {0}"
-command_failed: "❌ Command failed"
+command_copied_to_clipboard: "📋 Copied to clipboard!"
+clipboard_copy_failed: "Warning: Failed to copy to clipboard: {0}"
+clipboard_access_failed: "Warning: Could not access clipboard"
+command_ready_to_execute: "💡 Ready to execute (or modify)"
 
 # Enum arguments
 enum_args_getting_options: "🔍 Getting options for '{0}'..."
@@ -24,12 +25,13 @@ templates_render_failed: "Failed to render command template"
 
 # Errors
 errors_enum_command_execution_failed: "Failed to execute enum command: {0}"
-errors_spawn_failed: "Failed to spawn command"
-errors_execution_failed: "Command execution failed"
+
 errors_selection_failed: "Failed to get user selection"
 
 # Execution flow
 execution_workflow_header: "🚀 Executing workflow: {0}\n📝 {1}\n"
+execution_workflow_generate_header: "📋 Generating command for workflow: {0}\n📝 {1}\n"
+execution_workflow_generate_header_no_desc: "📋 Generating command for workflow: {0}\n"
 
 # Main CLI messages
 cli_available_workflows: "🔧 Available workflows:"

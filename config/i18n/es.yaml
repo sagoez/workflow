@@ -5,9 +5,10 @@
 progress_collecting_arguments: "Recopilando argumentos..."
 
 # Command execution
-command_executing_header: "\n💻 Ejecutando comando:"
-command_failed_with_code: "❌ El comando falló con código de salida: {0}"
-command_failed: "❌ El comando falló"
+command_copied_to_clipboard: "📋 ¡Copiado al portapapeles!"
+clipboard_copy_failed: "Advertencia: Error al copiar al portapapeles: {0}"
+clipboard_access_failed: "Advertencia: No se pudo acceder al portapapeles"
+command_ready_to_execute: "💡 Listo para ejecutar (o modificar)"
 
 # Enum arguments
 enum_args_getting_options: "🔍 Obteniendo opciones para '{0}'..."
@@ -24,12 +25,13 @@ templates_render_failed: "Error al renderizar plantilla de comando"
 
 # Errors
 errors_enum_command_execution_failed: "Error al ejecutar comando enum: {0}"
-errors_spawn_failed: "Error al generar comando"
-errors_execution_failed: "Ejecución de comando falló"
+
 errors_selection_failed: "Error al obtener selección del usuario"
 
 # Execution flow
 execution_workflow_header: "🚀 Ejecutando flujo de trabajo: {0}\n📝 {1}\n"
+execution_workflow_generate_header: "📋 Generando comando para flujo de trabajo: {0}\n📝 {1}\n"
+execution_workflow_generate_header_no_desc: "📋 Generando comando para flujo de trabajo: {0}\n"
 
 # Main CLI messages
 cli_available_workflows: "🔧 Flujos de trabajo disponibles:"

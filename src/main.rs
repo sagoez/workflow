@@ -179,7 +179,9 @@ async fn execute_workflow(file_path: &str) -> Result<()> {
     let workflow =
         Workflow::from_yaml(&yaml_content).with_context(|| text::t_params("error_failed_to_parse", &[file_path]))?;
 
-    workflow.execute().await
+    workflow.generate_command().await?;
+
+    Ok(())
 }
 
 /// Display a list of all available workflows in the resource directory.
