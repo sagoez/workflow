@@ -1,15 +1,15 @@
-use fuzzy_matcher::FuzzyMatcher;
-use fuzzy_matcher::skim::SkimMatcherV2;
+use std::io::ErrorKind;
+
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use inquire::{
     CustomUserError,
-    autocompletion::{Autocomplete, Replacement},
+    autocompletion::{Autocomplete, Replacement}
 };
-use std::io::ErrorKind;
 
 #[derive(Clone, Default)]
 pub struct FilePathCompleter {
     input: String,
-    paths: Vec<String>,
+    paths: Vec<String>
 }
 
 impl FilePathCompleter {
@@ -25,35 +25,22 @@ impl FilePathCompleter {
 
         let fallback_parent = input_path
             .parent()
-            .map(|p| {
-                if p.to_string_lossy() == "" {
-                    std::path::PathBuf::from(".")
-                } else {
-                    p.to_owned()
-                }
-            })
+            .map(|p| if p.to_string_lossy() == "" { std::path::PathBuf::from(".") } else { p.to_owned() })
             .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-        let scan_dir = if input.ends_with('/') {
-            input_path
-        } else {
-            fallback_parent.clone()
-        };
+        let scan_dir = if input.ends_with('/') { input_path } else { fallback_parent.clone() };
 
         let entries = match std::fs::read_dir(scan_dir) {
             Ok(read_dir) => Ok(read_dir),
             Err(err) if err.kind() == ErrorKind::NotFound => std::fs::read_dir(fallback_parent),
-            Err(err) => Err(err),
+            Err(err) => Err(err)
         }?
         .collect::<Result<Vec<_>, _>>()?;
 
         for entry in entries {
             let path = entry.path();
-            let path_str = if path.is_dir() {
-                format!("{}/", path.to_string_lossy())
-            } else {
-                path.to_string_lossy().to_string()
-            };
+            let path_str =
+                if path.is_dir() { format!("{}/", path.to_string_lossy()) } else { path.to_string_lossy().to_string() };
 
             self.paths.push(path_str);
         }
@@ -66,10 +53,7 @@ impl FilePathCompleter {
             .paths
             .iter()
             .filter_map(|path| {
-                SkimMatcherV2::default()
-                    .smart_case()
-                    .fuzzy_match(path, input)
-                    .map(|score| (path.clone(), score))
+                SkimMatcherV2::default().smart_case().fuzzy_match(path, input).map(|score| (path.clone(), score))
             })
             .collect();
 
@@ -89,7 +73,7 @@ impl Autocomplete for FilePathCompleter {
     fn get_completion(
         &mut self,
         input: &str,
-        highlighted_suggestion: Option<String>,
+        highlighted_suggestion: Option<String>
     ) -> Result<Replacement, CustomUserError> {
         self.update_input(input)?;
 
@@ -97,10 +81,7 @@ impl Autocomplete for FilePathCompleter {
             Replacement::Some(suggestion)
         } else {
             let matches = self.fuzzy_sort(input);
-            matches
-                .first()
-                .map(|(path, _)| Replacement::Some(path.clone()))
-                .unwrap_or(Replacement::None)
+            matches.first().map(|(path, _)| Replacement::Some(path.clone())).unwrap_or(Replacement::None)
         })
     }
 }

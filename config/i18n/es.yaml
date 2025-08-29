@@ -3,40 +3,28 @@
 
 # Progress messages
 progress_collecting_arguments: "Recopilando argumentos..."
-progress_all_arguments_collected: "✅ Todos los argumentos recopilados"
-progress_resolving_argument: "Resolviendo '{0}'"
 
 # Command execution
 command_executing_header: "\n💻 Ejecutando comando:"
-command_executing_spinner: "⚡ Ejecutando comando..."
-command_success_output: "✅ Resultado:"
-command_success_complete: "✅ ¡Flujo de trabajo completado exitosamente!"
-command_error_output: "Salida de error:"
 command_failed_with_code: "❌ El comando falló con código de salida: {0}"
 command_failed: "❌ El comando falló"
 
 # Enum arguments
 enum_args_getting_options: "🔍 Obteniendo opciones para '{0}'..."
-enum_args_selection_prompt: "{0}: {1}"
 enum_args_no_options_found: "No se encontraron opciones para el argumento '{0}'"
 enum_args_command_failed: "El comando enum falló: {0}"
 enum_args_missing_config: "El argumento enum '{0}' carece de enum_command o enum_name"
-enum_args_custom_input_option: "📝 Ingresar valor personalizado..."
-enum_args_custom_input_prompt: "Ingresa valor personalizado para {0}: "
 enum_args_searchable_help: "Escribe para buscar, o presiona Enter para seleccionar. También puedes escribir un valor personalizado."
 
 # Simple arguments
-simple_args_input_prompt: "{0}: {1}"
 simple_args_input_failed: "Error al obtener entrada para el argumento '{0}'"
 
 # Templates
-templates_tera_instance_failed: "Error al crear instancia de Tera"
 templates_render_failed: "Error al renderizar plantilla de comando"
 
 # Errors
 errors_enum_command_execution_failed: "Error al ejecutar comando enum: {0}"
 errors_spawn_failed: "Error al generar comando"
-errors_wait_failed: "Error al esperar comando"
 errors_execution_failed: "Ejecución de comando falló"
 errors_selection_failed: "Error al obtener selección del usuario"
 
@@ -45,12 +33,10 @@ execution_workflow_header: "🚀 Ejecutando flujo de trabajo: {0}\n📝 {1}\n"
 
 # Main CLI messages
 cli_available_workflows: "🔧 Flujos de trabajo disponibles:"
-cli_navigation_tip: "   💡 Usa las flechas ↑↓ para navegar, Enter para seleccionar, 'h' para ayuda"
 cli_select_prompt: "Selecciona un flujo de trabajo"
 cli_selected_workflow: "✅ Seleccionado: {0}"
 cli_workflow_description: "📝 {0}"
 cli_workflow_arguments: "🔧 Argumentos: {0}"
-cli_user_cancelled: "Usuario canceló la selección de flujo de trabajo"
 
 # Directory and file messages
 dir_no_resource_directory: "📁 No se encontró directorio resource. Crea 'resource/' y agrega tus archivos YAML de flujo de trabajo ahí."
@@ -69,8 +55,6 @@ list_usage_example: "  workflow \"Scale Kubernetes Pods.yaml\"  # Ejemplo"
 error_failed_to_read: "Error al leer archivo de flujo de trabajo: {0}"
 error_failed_to_parse: "Error al analizar YAML de flujo de trabajo: {0}"
 error_failed_to_read_dir: "Error al leer directorio resource"
-error_failed_to_get_selection: "Error al obtener selección de flujo de trabajo"
-error_failed_to_read_input: "Error al leer entrada"
 
 # Init command messages
 init_initializing: "Inicializando configuración de flujos de trabajo..."
@@ -90,3 +74,50 @@ lang_unknown_language: "Idioma desconocido '{0}'. Idiomas disponibles: {1}"
 lang_available_header: "Idiomas disponibles:"
 lang_current_marker: " (actual)"
 lang_current_language: "Idioma actual: {0}"
+
+# Resource command messages
+resource_set_success: "✅ URL del recurso establecida a: {0}"
+resource_set_tip: "💡 Ejecuta 'workflow sync' para clonar flujos de trabajo desde la nueva URL"
+resource_current_url: "URL del recurso actual: {0}"
+resource_no_url: "No hay URL de recurso configurada"
+
+# Git cloning messages
+git_cloning_from: "📥 Clonando flujos de trabajo desde: {0}"
+git_clone_success: "✅ Repositorio de flujos de trabajo clonado (commit: {0})"
+git_clearing_contents: "🗑️  Limpiando contenido existente del directorio de flujos de trabajo..."
+git_contents_cleared: "✅ Contenido existente limpiado"
+git_warning_remove_file: "⚠️  Advertencia: No se pudo eliminar el archivo {0}: {1}"
+git_warning_remove_dir: "⚠️  Advertencia: No se pudo eliminar el directorio {0}: {1}"
+
+# Git error messages
+git_failed_to_clone: "Error al clonar repositorio desde: {0}"
+git_failed_to_create_workflows_dir: "Error al crear directorio de flujos de trabajo: {0}"
+git_failed_to_remove_workflows_dir: "Error al eliminar directorio de flujos de trabajo existente: {0}"
+git_failed_to_remove_workflows_dir_after_clear: "Error al eliminar directorio de flujos de trabajo después de limpiar contenido: {0}"
+git_no_ssh_credentials: "No hay credenciales SSH disponibles"
+
+# Config error messages
+config_failed_to_read: "Error al leer archivo de configuración: {0}"
+config_failed_to_create_dir: "Error al crear directorio de configuración: {0}"
+config_failed_to_write: "Error al escribir archivo de configuración: {0}"
+config_failed_to_create_i18n_dir: "Error al crear directorio i18n: {0}"
+config_failed_to_write_en_translations: "Error al escribir traducciones en inglés: {0}"
+config_failed_to_write_es_translations: "Error al escribir traducciones en español: {0}"
+
+# General error messages
+general_failed_to_determine_project_dirs: "Error al determinar directorios del proyecto"
+general_failed_to_parse_config: "Error al analizar archivo de configuración"
+general_failed_to_serialize_config: "Error al serializar configuración"
+general_failed_to_get_workflows_dir: "Error al obtener directorio de flujos de trabajo"
+general_failed_to_set_resource_url: "Error al establecer URL del recurso"
+general_failed_to_get_current_resource_url: "Error al obtener URL actual del recurso"
+general_failed_to_get_file_name: "Error al obtener nombre del archivo"
+general_failed_to_show_workflow_selection: "Error al mostrar selección de flujo de trabajo"
+general_failed_to_init_config_dirs: "Error al inicializar directorios de configuración"
+general_failed_to_list_languages: "Error al listar idiomas disponibles"
+general_failed_to_set_language: "Error al establecer idioma"
+general_failed_to_get_current_language: "Error al obtener idioma actual"
+
+# Sync command messages
+sync_success: "✅ Flujos de trabajo sincronizados exitosamente desde: {0}"
+sync_no_url_configured: "No hay URL de recurso configurada. Usa 'workflow resource set <url>' para configurar una, o proporciona una URL directamente con 'workflow sync <url>'"

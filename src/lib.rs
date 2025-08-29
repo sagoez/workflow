@@ -8,12 +8,12 @@
 //! - Execute commands with template variable substitution
 //! - Provide rich user feedback with progress indicators
 
+use std::{collections::HashMap, process::Command};
+
 use anyhow::{Context as AnyhowContext, Result};
 use indicatif::ProgressBar;
 use inquire::{Select, Text};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::process::Command;
 use tera::{Context, Tera};
 
 pub mod autocomplete;
@@ -41,23 +41,23 @@ pub mod text;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Workflow {
     /// Human-readable name of the workflow
-    pub name: String,
+    pub name:        String,
     /// Command template with {{variable}} placeholders to be executed
-    pub command: String,
+    pub command:     String,
     /// Description explaining what the workflow does
     pub description: String,
     /// List of arguments that need to be resolved before execution
-    pub arguments: Vec<WorkflowArgument>,
+    pub arguments:   Vec<WorkflowArgument>,
     /// Tags for categorizing workflows
-    pub tags: Vec<String>,
+    pub tags:        Vec<String>,
     /// Optional URL to the workflow source
-    pub source_url: Option<String>,
+    pub source_url:  Option<String>,
     /// Optional workflow author name
-    pub author: Option<String>,
+    pub author:      Option<String>,
     /// Optional URL to author's profile/website
-    pub author_url: Option<String>,
+    pub author_url:  Option<String>,
     /// List of supported shell environments [TODO: add support for other shells]
-    pub shells: Vec<String>,
+    pub shells:      Vec<String>
 }
 
 /// Represents a single argument that needs to be resolved before workflow execution.
@@ -89,22 +89,22 @@ pub struct Workflow {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkflowArgument {
     /// Variable name used in command template (e.g., {{name}})
-    pub name: String,
+    pub name:               String,
     /// Type of argument - determines resolution method
     #[serde(default = "default_arg_type")]
-    pub arg_type: ArgumentType,
+    pub arg_type:           ArgumentType,
     /// Human-readable description shown in prompts
-    pub description: String,
+    pub description:        String,
     /// Optional default value (use ~ for null/no default)
-    pub default_value: Option<String>,
+    pub default_value:      Option<String>,
     /// For Enum type: identifier for the dynamic option set
-    pub enum_name: Option<String>,
+    pub enum_name:          Option<String>,
     /// For Enum type: command to execute to get available options
-    pub enum_command: Option<String>,
+    pub enum_command:       Option<String>,
     /// For Enum type: static list of predefined options
-    pub enum_variants: Option<Vec<String>>,
+    pub enum_variants:      Option<Vec<String>>,
     /// For Enum type: name of the argument to reference for dynamic resolution in enum_command
-    pub dynamic_resolution: Option<String>,
+    pub dynamic_resolution: Option<String>
 }
 
 /// Returns the default argument type when not specified in YAML.
@@ -129,7 +129,7 @@ pub enum ArgumentType {
     /// Numeric input (stored as string but validated)
     Number,
     /// Boolean true/false input
-    Boolean,
+    Boolean
 }
 
 impl Workflow {
@@ -184,7 +184,8 @@ impl Workflow {
     ///
     /// # Returns
     /// * `Ok(())` - Workflow executed successfully
-    /// * `Err(anyhow::Error)` - Error during argument resolution, template rendering, or command execution
+    /// * `Err(anyhow::Error)` - Error during argument resolution, template rendering, or command
+    ///   execution
     ///
     /// # Example
     /// ```rust,no_run
@@ -209,13 +210,7 @@ impl Workflow {
     /// # }
     /// ```
     pub async fn execute(&self) -> Result<()> {
-        print!(
-            "{}",
-            text::t_params(
-                "execution_workflow_header",
-                &[&self.name, &self.description]
-            )
-        );
+        print!("{}", text::t_params("execution_workflow_header", &[&self.name, &self.description]));
 
         let mut argument_values = HashMap::new();
 
@@ -251,26 +246,21 @@ impl Workflow {
     async fn resolve_argument(
         &self,
         arg: &WorkflowArgument,
-        current_values: &HashMap<String, String>,
+        current_values: &HashMap<String, String>
     ) -> Result<String> {
         match arg.arg_type {
             ArgumentType::Enum => {
                 if let Some(enum_variants) = &arg.enum_variants {
                     // Static enum variants
                     self.resolve_static_enum_argument(arg, enum_variants)
-                } else if let (Some(enum_command), Some(enum_name)) =
-                    (&arg.enum_command, &arg.enum_name)
-                {
+                } else if let (Some(enum_command), Some(enum_name)) = (&arg.enum_command, &arg.enum_name) {
                     // Dynamic enum via command
-                    self.resolve_enum_argument(arg, enum_command, enum_name, current_values)
-                        .await
+                    self.resolve_enum_argument(arg, enum_command, enum_name, current_values).await
                 } else {
                     anyhow::bail!(text::t_params("enum_args_missing_config", &[&arg.name]));
                 }
             }
-            ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => {
-                self.resolve_simple_argument(arg)
-            }
+            ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => self.resolve_simple_argument(arg)
         }
     }
 
@@ -286,11 +276,7 @@ impl Workflow {
     /// # Returns
     /// * `Ok(String)` - The selected option or custom input
     /// * `Err(anyhow::Error)` - User interaction error
-    fn resolve_static_enum_argument(
-        &self,
-        arg: &WorkflowArgument,
-        variants: &[String],
-    ) -> Result<String> {
+    fn resolve_static_enum_argument(&self, arg: &WorkflowArgument, variants: &[String]) -> Result<String> {
         if variants.is_empty() {
             anyhow::bail!(text::t_params("enum_args_no_options_found", &[&arg.name]));
         }
@@ -333,7 +319,7 @@ impl Workflow {
         arg: &WorkflowArgument,
         enum_command: &str,
         _enum_name: &str,
-        current_values: &HashMap<String, String>,
+        current_values: &HashMap<String, String>
     ) -> Result<String> {
         let spinner = ProgressBar::new_spinner();
         spinner.set_style(text::spinners::enum_spinner_style());
@@ -346,10 +332,7 @@ impl Workflow {
                 // Substitute the referenced argument value in the enum_command
                 enum_command.replace(&format!("{{{{{}}}}}", ref_arg), ref_value)
             } else {
-                anyhow::bail!(
-                    "Dynamic resolution failed: referenced argument '{}' not found",
-                    ref_arg
-                );
+                anyhow::bail!("Dynamic resolution failed: referenced argument '{}' not found", ref_arg);
             }
         } else {
             enum_command.to_string()
@@ -359,24 +342,16 @@ impl Workflow {
             .arg("-c")
             .arg(&resolved_command)
             .output()
-            .with_context(|| {
-                text::t_params("errors_enum_command_execution_failed", &[&resolved_command])
-            })?;
+            .with_context(|| text::t_params("errors_enum_command_execution_failed", &[&resolved_command]))?;
 
         spinner.finish_and_clear();
 
         if !output.status.success() {
-            anyhow::bail!(text::t_params(
-                "enum_args_command_failed",
-                &[&String::from_utf8_lossy(&output.stderr)]
-            ));
+            anyhow::bail!(text::t_params("enum_args_command_failed", &[&String::from_utf8_lossy(&output.stderr)]));
         }
 
-        let options: Vec<String> = String::from_utf8(output.stdout)?
-            .lines()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
+        let options: Vec<String> =
+            String::from_utf8(output.stdout)?.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
 
         if options.is_empty() {
             anyhow::bail!(text::t_params("enum_args_no_options_found", &[&arg.name]));
@@ -418,8 +393,7 @@ impl Workflow {
             arg.description.clone()
         };
 
-        let mut text_input =
-            Text::new(&prompt).with_autocomplete(autocomplete::FilePathCompleter::default());
+        let mut text_input = Text::new(&prompt).with_autocomplete(autocomplete::FilePathCompleter::default());
 
         if let Some(default) = &arg.default_value {
             if !default.is_empty() && default != "~" {
@@ -427,9 +401,7 @@ impl Workflow {
             }
         }
 
-        text_input
-            .prompt()
-            .with_context(|| text::t_params("simple_args_input_failed", &[&arg.name]))
+        text_input.prompt().with_context(|| text::t_params("simple_args_input_failed", &[&arg.name]))
     }
 
     /// Render the command template by substituting argument values.
@@ -456,8 +428,7 @@ impl Workflow {
             context.insert(key, value);
         }
 
-        tera.render_str(&self.command, &context)
-            .with_context(|| text::t("templates_render_failed"))
+        tera.render_str(&self.command, &context).with_context(|| text::t("templates_render_failed"))
     }
 
     /// Execute the final rendered command and display results.
@@ -483,14 +454,8 @@ impl Workflow {
             .with_context(|| text::t("errors_spawn_failed"))?;
 
         if !status.success() {
-            let exit_code = status
-                .code()
-                .map(|c| c.to_string())
-                .unwrap_or_else(|| "unknown".to_string());
-            println!(
-                "{}",
-                text::t_params("command_failed_with_code", &[&exit_code])
-            );
+            let exit_code = status.code().map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string());
+            println!("{}", text::t_params("command_failed_with_code", &[&exit_code]));
             anyhow::bail!(text::t("errors_execution_failed"));
         }
 
@@ -500,22 +465,19 @@ impl Workflow {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
+    use super::*;
 
     #[test]
     fn test_parse_scale_kubernetes_pods_yaml() {
-        let yaml_content = fs::read_to_string("resource/scale_kubernetes_pods.yaml")
-            .expect("Failed to read YAML file");
+        let yaml_content = fs::read_to_string("resource/scale_kubernetes_pods.yaml").expect("Failed to read YAML file");
 
         let workflow = Workflow::from_yaml(&yaml_content).expect("Failed to parse YAML");
 
         // Verify the parsed content
         assert_eq!(workflow.name, "Scale Kubernetes Pods");
-        assert_eq!(
-            workflow.description,
-            "Workflow to safely scale down Kubernetes deployments and statefulsets"
-        );
+        assert_eq!(workflow.description, "Workflow to safely scale down Kubernetes deployments and statefulsets");
         assert_eq!(workflow.arguments.len(), 2);
 
         // Check namespace argument
@@ -525,10 +487,7 @@ mod tests {
         assert_eq!(namespace_arg.description, "Namespace to apply scale to");
 
         assert_eq!(namespace_arg.enum_name.as_ref().unwrap(), "namespaces");
-        assert_eq!(
-            namespace_arg.enum_command.as_ref().unwrap(),
-            "kubectl get namespaces | awk 'NR>1 {print $1}'"
-        );
+        assert_eq!(namespace_arg.enum_command.as_ref().unwrap(), "kubectl get namespaces | awk 'NR>1 {print $1}'");
 
         // Check replica_count argument
         let replica_arg = &workflow.arguments[1];
@@ -539,13 +498,6 @@ mod tests {
 
         println!("✅ Successfully parsed workflow: {}", workflow.name);
         println!("Command: {}", workflow.command);
-        println!(
-            "Arguments: {:?}",
-            workflow
-                .arguments
-                .iter()
-                .map(|a| &a.name)
-                .collect::<Vec<_>>()
-        );
+        println!("Arguments: {:?}", workflow.arguments.iter().map(|a| &a.name).collect::<Vec<_>>());
     }
 }

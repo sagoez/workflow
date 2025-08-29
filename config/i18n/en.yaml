@@ -3,40 +3,28 @@
 
 # Progress messages
 progress_collecting_arguments: "Collecting arguments..."
-progress_all_arguments_collected: "✅ All arguments collected"
-progress_resolving_argument: "Resolving '{0}'"
 
 # Command execution
 command_executing_header: "\n💻 Executing command:"
-command_executing_spinner: "⚡ Executing command..."
-command_success_output: "✅ Output:"
-command_success_complete: "✅ Workflow completed successfully!"
-command_error_output: "Error output:"
 command_failed_with_code: "❌ Command failed with exit code: {0}"
 command_failed: "❌ Command failed"
 
 # Enum arguments
 enum_args_getting_options: "🔍 Getting options for '{0}'..."
-enum_args_selection_prompt: "{0}: {1}"
 enum_args_no_options_found: "No options found for argument '{0}'"
 enum_args_command_failed: "Enum command failed: {0}"
 enum_args_missing_config: "Enum argument '{0}' missing enum_command or enum_name"
-enum_args_custom_input_option: "📝 Enter custom value..."
-enum_args_custom_input_prompt: "Enter custom value for {0}: "
 enum_args_searchable_help: "Type to search, or press Enter to select. You can also type a custom value."
 
 # Simple arguments
-simple_args_input_prompt: "{0}: {1}"
 simple_args_input_failed: "Failed to get input for argument '{0}'"
 
 # Templates
-templates_tera_instance_failed: "Failed to create Tera instance"
 templates_render_failed: "Failed to render command template"
 
 # Errors
 errors_enum_command_execution_failed: "Failed to execute enum command: {0}"
 errors_spawn_failed: "Failed to spawn command"
-errors_wait_failed: "Failed to wait for command"
 errors_execution_failed: "Command execution failed"
 errors_selection_failed: "Failed to get user selection"
 
@@ -45,12 +33,10 @@ execution_workflow_header: "🚀 Executing workflow: {0}\n📝 {1}\n"
 
 # Main CLI messages
 cli_available_workflows: "🔧 Available workflows:"
-cli_navigation_tip: "   💡 Use ↑↓ arrow keys to navigate, Enter to select, 'h' for help"
 cli_select_prompt: "Select a workflow"
 cli_selected_workflow: "✅ Selected: {0}"
 cli_workflow_description: "📝 {0}"
 cli_workflow_arguments: "🔧 Arguments: {0}"
-cli_user_cancelled: "User cancelled workflow selection"
 
 # Directory and file messages
 dir_no_resource_directory: "📁 No resource directory found. Create 'resource/' and add your workflow YAML files there."
@@ -69,8 +55,6 @@ list_usage_example: "  workflow \"Scale Kubernetes Pods.yaml\"  # Example"
 error_failed_to_read: "Failed to read workflow file: {0}"
 error_failed_to_parse: "Failed to parse workflow YAML: {0}"
 error_failed_to_read_dir: "Failed to read resource directory"
-error_failed_to_get_selection: "Failed to get workflow selection"
-error_failed_to_read_input: "Failed to read input"
 
 # Init command messages
 init_initializing: "Initializing workflow configuration..."
@@ -90,3 +74,50 @@ lang_unknown_language: "Unknown language '{0}'. Available languages: {1}"
 lang_available_header: "Available languages:"
 lang_current_marker: " (current)"
 lang_current_language: "Current language: {0}"
+
+# Resource command messages
+resource_set_success: "✅ Resource URL set to: {0}"
+resource_set_tip: "💡 Run 'workflow sync' to clone workflows from the new URL"
+resource_current_url: "Current resource URL: {0}"
+resource_no_url: "No resource URL configured"
+
+# Git cloning messages
+git_cloning_from: "📥 Cloning workflows from: {0}"
+git_clone_success: "✅ Cloned workflows repository (commit: {0})"
+git_clearing_contents: "🗑️  Clearing existing workflows directory contents..."
+git_contents_cleared: "✅ Existing contents cleared"
+git_warning_remove_file: "⚠️  Warning: Could not remove file {0}: {1}"
+git_warning_remove_dir: "⚠️  Warning: Could not remove directory {0}: {1}"
+
+# Git error messages
+git_failed_to_clone: "Failed to clone repository from: {0}"
+git_failed_to_create_workflows_dir: "Failed to create workflows directory: {0}"
+git_failed_to_remove_workflows_dir: "Failed to remove existing workflows directory: {0}"
+git_failed_to_remove_workflows_dir_after_clear: "Failed to remove workflows directory after clearing contents: {0}"
+git_no_ssh_credentials: "No SSH credentials available"
+
+# Config error messages
+config_failed_to_read: "Failed to read config file: {0}"
+config_failed_to_create_dir: "Failed to create config directory: {0}"
+config_failed_to_write: "Failed to write config file: {0}"
+config_failed_to_create_i18n_dir: "Failed to create i18n directory: {0}"
+config_failed_to_write_en_translations: "Failed to write English translations: {0}"
+config_failed_to_write_es_translations: "Failed to write Spanish translations: {0}"
+
+# General error messages
+general_failed_to_determine_project_dirs: "Failed to determine project directories"
+general_failed_to_parse_config: "Failed to parse config file"
+general_failed_to_serialize_config: "Failed to serialize config"
+general_failed_to_get_workflows_dir: "Failed to get workflows directory"
+general_failed_to_set_resource_url: "Failed to set resource URL"
+general_failed_to_get_current_resource_url: "Failed to get current resource URL"
+general_failed_to_get_file_name: "Failed to get file name"
+general_failed_to_show_workflow_selection: "Failed to show workflow selection"
+general_failed_to_init_config_dirs: "Failed to initialize configuration directories"
+general_failed_to_list_languages: "Failed to list available languages"
+general_failed_to_set_language: "Failed to set language"
+general_failed_to_get_current_language: "Failed to get current language"
+
+# Sync command messages
+sync_success: "✅ Workflows synced successfully from: {0}"
+sync_no_url_configured: "No resource URL configured. Use 'workflow resource set <url>' to set one, or provide a URL directly with 'workflow sync <url>'"

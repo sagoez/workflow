@@ -6,7 +6,7 @@
 //! ## Usage
 //!
 //! ```rust
-//! use workflow::text::{get_text, set_language, Language};
+//! use workflow::text::{Language, get_text, set_language};
 //!
 //! // Get text in default language (English)
 //! let msg = get_text("progress_collecting_arguments");
@@ -23,9 +23,9 @@
 //! - `config/i18n/es.yaml` - Spanish
 //! - etc.
 
+use std::{collections::HashMap, sync::OnceLock};
+
 use serde_yaml::Value;
-use std::collections::HashMap;
-use std::sync::OnceLock;
 
 pub mod spinners;
 
@@ -35,10 +35,9 @@ use crate::config;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
     English,
-    Spanish,
-    // French,
-    // German,
-    // Japanese,
+    Spanish /* French,
+             * German,
+             * Japanese, */
 }
 
 impl Language {
@@ -46,7 +45,7 @@ impl Language {
     pub fn code(&self) -> &'static str {
         match self {
             Language::English => "en",
-            Language::Spanish => "es",
+            Language::Spanish => "es"
         }
     }
 
@@ -55,7 +54,7 @@ impl Language {
         match code {
             "en" => Some(Language::English),
             "es" => Some(Language::Spanish),
-            _ => None,
+            _ => None
         }
     }
 }
@@ -82,13 +81,7 @@ fn load_language_texts(lang: Language) -> TextMap {
                 Ok(yaml_map) => {
                     return yaml_map
                         .into_iter()
-                        .filter_map(|(k, v)| {
-                            if let Value::String(s) = v {
-                                Some((k, s))
-                            } else {
-                                None
-                            }
-                        })
+                        .filter_map(|(k, v)| if let Value::String(s) = v { Some((k, s)) } else { None })
                         .collect();
                 }
                 Err(e) => {
@@ -100,26 +93,16 @@ fn load_language_texts(lang: Language) -> TextMap {
 
     let embedded_content = match lang {
         Language::English => include_str!("../../config/i18n/en.yaml"),
-        Language::Spanish => include_str!("../../config/i18n/es.yaml"),
+        Language::Spanish => include_str!("../../config/i18n/es.yaml")
     };
 
     match serde_yaml::from_str::<HashMap<String, Value>>(embedded_content) {
         Ok(yaml_map) => yaml_map
             .into_iter()
-            .filter_map(|(k, v)| {
-                if let Value::String(s) = v {
-                    Some((k, s))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(k, v)| if let Value::String(s) = v { Some((k, s)) } else { None })
             .collect(),
         Err(e) => {
-            eprintln!(
-                "Warning: Failed to parse embedded translations for {}: {}",
-                lang.code(),
-                e
-            );
+            eprintln!("Warning: Failed to parse embedded translations for {}: {}", lang.code(), e);
             HashMap::new()
         }
     }
@@ -185,10 +168,7 @@ pub fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> 
 
 /// Get the current language from configuration
 pub fn current_language() -> Language {
-    config::get_current_language()
-        .ok()
-        .and_then(|lang_code| Language::from_code(&lang_code))
-        .unwrap_or_default()
+    config::get_current_language().ok().and_then(|lang_code| Language::from_code(&lang_code)).unwrap_or_default()
 }
 
 /// Convenience function to get text in current language
