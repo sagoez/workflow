@@ -51,7 +51,7 @@ file_workflow_not_found: "Workflow file not found: {0}"
 list_no_workflows: "No valid workflow files found in the resource directory.\nAdd .yaml or .yml files to get started!"
 list_usage_header: "Usage:"
 list_usage_execute: "  workflow <filename>           # Execute a workflow"
-list_usage_example: "  workflow \"Scale Kubernetes Pods.yaml\"  # Example"
+list_usage_example: "  workflow \"scale_kubernetes_pods.yaml\"  # Example"
 
 # File reading errors
 error_failed_to_read: "Failed to read workflow file: {0}"
