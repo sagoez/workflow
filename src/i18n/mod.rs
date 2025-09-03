@@ -77,12 +77,12 @@ pub fn get_text_lang(key: &str, lang: Language) -> String {
 }
 
 /// Get formatted text with parameters
-pub fn get_text_with_params(key: &str, params: &[&str]) -> String {
+fn get_text_with_params(key: &str, params: &[&str]) -> String {
     get_text_with_params_lang(key, params, current_language())
 }
 
 /// Get formatted text with parameters in a specific language
-pub fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> String {
+fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> String {
     let template = get_text_lang(key, lang);
 
     let mut result = template;
