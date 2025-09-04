@@ -19,6 +19,7 @@ use crate::{
 };
 
 /// Service for configuration operations
+#[allow(dead_code)]
 pub struct ConfigService {
     config_store: Arc<dyn ConfigStore>,
     event_store:  Arc<dyn EventStore>,
@@ -118,7 +119,7 @@ impl ConfigService {
         self.config_store.save_config(&config).await?;
 
         // Create and emit resource URL changed event
-        let event = ResourceUrlChangedEvent::new(old_url, url.to_string(), context.user.clone());
+        let event = ResourceUrlChangedEvent::new(old_url.unwrap_or_default(), url.to_string(), context.user.clone());
 
         // Store the event
         let event_data = self.event_to_data(&event)?;

@@ -54,7 +54,9 @@ pub enum LangCommands {
         language: String
     },
     /// Show current language
-    Current
+    Current,
+    /// List available languages
+    List
 }
 
 /// Resource management subcommands

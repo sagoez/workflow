@@ -59,7 +59,7 @@ impl SyncService {
         &self,
         repository_url: &str,
         ssh_key: Option<&str>,
-        context: &CommandContext
+        _context: &CommandContext
     ) -> Result<SyncResult, WorkflowError> {
         // Display sync start message
         self.renderer.display_message(&i18n::t_params("service_syncing_from", &[repository_url])).await?;
@@ -98,12 +98,7 @@ impl SyncService {
         spinner.finish(Some(&i18n::t_params("service_synced_workflows", &[&workflow_count.to_string(), &commit_hash])));
 
         // Create and emit sync event
-        let event = WorkflowsSyncedEvent::new(
-            repository_url.to_string(),
-            commit_hash.clone(),
-            workflow_count,
-            context.user.clone()
-        );
+        let event = WorkflowsSyncedEvent::new(repository_url.to_string(), commit_hash.clone(), workflow_count);
 
         // Store the event
         let event_data = self.event_to_data(&event)?;
@@ -136,10 +131,10 @@ impl SyncService {
             if let Ok(event) = serde_json::from_value::<WorkflowsSyncedEvent>(event_data.data) {
                 history.push(SyncHistoryEntry {
                     timestamp:       event_data.timestamp,
-                    repository_url:  event.repository_url,
-                    commit_hash:     event.commit_hash,
+                    repository_url:  event.repository_url.clone(),
+                    commit_hash:     event.commit_hash.clone(),
                     workflows_count: event.workflows_count,
-                    user:            event.user
+                    user:            "system".to_string()
                 });
             }
         }

@@ -27,6 +27,16 @@ impl EventBus {
         self.handlers.push(handler);
     }
 
+    /// Get the event store (for engine access)
+    pub fn get_event_store(&self) -> Arc<dyn crate::ports::storage::EventStore> {
+        self.event_store.clone()
+    }
+
+    /// Get the event handlers (for engine access)
+    pub fn get_handlers(&self) -> &Vec<Box<dyn EventHandler>> {
+        &self.handlers
+    }
+
     /// Execute a command following the 4-phase lifecycle
     pub async fn execute_command<C>(&self, mut command: C, context: &CommandContext) -> Result<Vec<C::Event>, C::Error>
     where
@@ -90,85 +100,18 @@ pub trait EventHandler: Send + Sync {
     fn event_types(&self) -> Vec<&'static str>;
 }
 
-/// Command dispatcher that routes CLI commands to appropriate handlers
-pub struct CommandDispatcher {
-    event_bus: Arc<EventBus>
-}
-
-impl CommandDispatcher {
-    pub fn new(event_bus: Arc<EventBus>) -> Self {
-        Self { event_bus }
-    }
-
-    /// Dispatch a command based on CLI arguments
-    pub async fn dispatch(&self, cli_args: &crate::shared::Cli, context: &CommandContext) -> Result<(), WorkflowError> {
-        use crate::shared::commands::*;
-
-        match &cli_args.command {
-            Some(Commands::Init) => {
-                let command = InitConfigCommand::new();
-                self.event_bus.execute_command(command, context).await?;
-            }
-            Some(Commands::Lang { command: lang_cmd }) => {
-                use crate::shared::LangCommands;
-                match lang_cmd {
-                    LangCommands::Set { language } => {
-                        let command = SetLanguageCommand::new(language.clone());
-                        self.event_bus.execute_command(command, context).await?;
-                    }
-                    LangCommands::List => {
-                        // TODO: Implement ListLanguagesCommand
-                        println!("Available languages: en, es");
-                    }
-                    LangCommands::Current => {
-                        // TODO: Implement GetCurrentLanguageCommand
-                        println!("Current language: en");
-                    }
-                }
-            }
-            Some(Commands::Resource { command: resource_cmd }) => {
-                use crate::shared::ResourceCommands;
-                match resource_cmd {
-                    ResourceCommands::Set { url } => {
-                        // TODO: Implement SetResourceUrlCommand
-                        println!("Resource URL set to: {}", url);
-                    }
-                    ResourceCommands::Current => {
-                        // TODO: Implement GetResourceUrlCommand
-                        println!("Current resource URL: (not implemented)");
-                    }
-                }
-            }
-            Some(Commands::Sync { url, ssh_key }) => {
-                let command = SyncWorkflowsCommand::new(url.clone(), ssh_key.clone());
-                self.event_bus.execute_command(command, context).await?;
-            }
-            None => {
-                // Handle workflow execution
-                if cli_args.list {
-                    let command = ListWorkflowsCommand::new();
-                    self.event_bus.execute_command(command, context).await?;
-                } else if let Some(file_path) = &cli_args.file {
-                    let command = ExecuteWorkflowCommand::new(file_path.clone());
-                    self.event_bus.execute_command(command, context).await?;
-                } else {
-                    // Interactive workflow selection
-                    // TODO: Implement SelectWorkflowCommand
-                    println!("Interactive workflow selection not yet implemented");
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
 // =============================================================================
 // Built-in Event Handlers
 // =============================================================================
 
 /// Event handler that logs all events
 pub struct LoggingEventHandler;
+
+impl LoggingEventHandler {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 #[async_trait]
 impl EventHandler for LoggingEventHandler {

@@ -7,7 +7,6 @@ use std::{any::Any, fmt::Debug};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Core event trait for all domain events
 ///

@@ -92,6 +92,7 @@ impl Command for ListWorkflowsCommand {
 
 /// Command to execute a specific workflow
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ExecuteWorkflowCommand {
     pub file_path:    String,
     workflow:         Option<Workflow>,
@@ -138,7 +139,6 @@ impl Command for ExecuteWorkflowCommand {
         let event = WorkflowStartedEvent::new(
             workflow.name.clone(),
             self.resolved_command.clone().unwrap_or_default(),
-            self.arguments.clone(),
             context.user.clone(),
             context.hostname.clone(),
             context.session_id.clone()
@@ -397,12 +397,11 @@ impl Command for SyncWorkflowsCommand {
         Ok(())
     }
 
-    async fn emit(&self, context: &CommandContext) -> Result<Vec<Self::Event>, Self::Error> {
+    async fn emit(&self, _context: &CommandContext) -> Result<Vec<Self::Event>, Self::Error> {
         let event = WorkflowsSyncedEvent::new(
             self.repository_url.clone().unwrap(),
             self.commit_hash.clone().unwrap_or_else(|| "unknown".to_string()),
-            self.workflows_count,
-            context.user.clone()
+            self.workflows_count
         );
 
         Ok(vec![event])

@@ -11,8 +11,7 @@ use crate::{
         ArgumentDefinition, ArgumentType, ProgressHandle, ProgressIndicator, Prompter, Renderer, SpinnerHandle,
         WorkflowInfo
     },
-    shared::WorkflowError,
-    utils::FilePathCompleter
+    shared::WorkflowError
 };
 
 /// Terminal implementation of Prompter

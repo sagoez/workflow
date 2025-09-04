@@ -17,7 +17,8 @@ use crate::{
     shared::{CommandContext, Workflow, WorkflowError, events::*}
 };
 
-/// Service for workflow operations
+/// Service for workflow operations  
+#[allow(dead_code)]
 pub struct WorkflowService {
     filesystem:    Arc<dyn FileSystem>,
     event_store:   Arc<dyn EventStore>,
@@ -42,7 +43,7 @@ impl WorkflowService {
     }
 
     /// List all available workflows
-    pub async fn list_workflows(&self, context: &CommandContext) -> Result<Vec<WorkflowInfo>, WorkflowError> {
+    pub async fn list_workflows(&self, _context: &CommandContext) -> Result<Vec<WorkflowInfo>, WorkflowError> {
         // Get workflows directory from config
         let config = self.config_store.load_config().await?;
         let workflows_dir = self.get_workflows_dir(&config).await?;
@@ -131,7 +132,6 @@ impl WorkflowService {
         let started_event = WorkflowStartedEvent::new(
             workflow.name.clone(),
             final_command.clone(),
-            arguments.clone(),
             context.user.clone(),
             context.hostname.clone(),
             context.session_id.clone()
@@ -274,9 +274,5 @@ impl WorkflowService {
             data,
             metadata: None
         })
-    }
-
-    fn event_to_data_generic<E: serde::Serialize>(&self, event: &E) -> Result<EventData, WorkflowError> {
-        self.event_to_data(event)
     }
 }
