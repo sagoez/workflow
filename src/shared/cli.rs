@@ -1,24 +1,27 @@
-//! CLI argument parsing
+//! CLI argument definitions
+//!
+//! This module defines the command-line interface structure for the workflow application.
 
 use clap::{Parser, Subcommand};
 
-#[derive(Parser)]
+/// Main CLI application
+#[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-#[command(propagate_version = true)]
 pub struct Cli {
     /// Path to the workflow YAML file (optional - will show selection menu if not provided)
-    #[arg(value_name = "FILE")]
     pub file: Option<String>,
 
     /// List all available workflows
     #[arg(short, long)]
     pub list: bool,
 
+    /// Subcommands
     #[command(subcommand)]
     pub command: Option<Commands>
 }
 
-#[derive(Subcommand)]
+/// Available CLI commands
+#[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Initialize configuration directories and copy default files
     Init,
@@ -34,34 +37,32 @@ pub enum Commands {
     },
     /// Sync workflows by cloning from Git repository
     Sync {
-        /// Optional Git URL to use instead of the configured one
+        /// Git repository URL to sync from
         url:     Option<String>,
-        /// Path to SSH private key for SSH authentication
+        /// SSH key path for authentication
         #[arg(long)]
         ssh_key: Option<String>
     }
 }
 
-#[derive(Subcommand)]
+/// Language management subcommands
+#[derive(Subcommand, Debug)]
 pub enum LangCommands {
     /// Set the current language
     Set {
         /// Language code (e.g., 'en', 'es')
         language: String
     },
-    /// List available languages
-    List,
     /// Show current language
     Current
 }
 
-#[derive(Subcommand)]
+/// Resource management subcommands
+#[derive(Subcommand, Debug)]
 pub enum ResourceCommands {
-    /// Set the resource URL for workflows
+    /// Set the resource URL
     Set {
-        /// Git URL for workflows repository
+        /// Resource URL to set
         url: String
-    },
-    /// Show current resource URL
-    Current
+    }
 }

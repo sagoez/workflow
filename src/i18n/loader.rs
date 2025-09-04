@@ -3,11 +3,12 @@ use std::collections::HashMap;
 use serde_yaml::Value;
 
 use super::{Language, TextMap};
-use crate::config;
+// TODO: Replace with ConfigService - using direct path access for now
 
 /// Load text mappings for a specific language
 pub fn load_language_texts(lang: Language) -> TextMap {
-    if let Ok(i18n_dir) = config::get_i18n_dir() {
+    if let Ok(config_dir) = crate::get_config_dir() {
+        let i18n_dir = config_dir.join("i18n");
         let config_path = i18n_dir.join(format!("{}.yaml", lang.code()));
 
         if let Ok(content) = std::fs::read_to_string(&config_path) {

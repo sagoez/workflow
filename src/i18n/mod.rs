@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::OnceLock};
 
 pub use loader::*;
 
-use crate::config;
+// TODO: Replace with ConfigService
 
 /// Supported languages
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -95,7 +95,9 @@ fn get_text_with_params_lang(key: &str, params: &[&str], lang: Language) -> Stri
 
 /// Get the current language from configuration
 pub fn current_language() -> Language {
-    config::get_current_language().ok().and_then(|lang_code| Language::from_code(&lang_code)).unwrap_or_default()
+    // TODO: Get current language from ConfigService
+    // For now, default to English
+    Language::English
 }
 
 /// Convenience function to get text in current language
