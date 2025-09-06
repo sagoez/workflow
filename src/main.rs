@@ -28,65 +28,103 @@
 //! The CLI looks for workflow YAML files in the `resource/` directory relative to the
 //! current working directory. Files can have `.yaml` or `.yml` extensions.
 
-use std::path::Path;
-
-use anyhow::{Context, Result};
 use clap::Parser;
+use ractor::{
+    ActorRef,
+    rpc::{CallResult, call}
+};
 use workflow::{
-    cli::{
-        Cli, Commands, execute_workflow, handle_init_command, handle_lang_command, handle_resource_command,
-        handle_sync_command, list_workflows, select_and_execute_workflow
+    actor::{Guardian, GuardianMessage},
+    domain::{
+        command::{
+            CompleteWorkflowCommand, DiscoverWorkflowsCommand, GetCurrentLanguageCommand,
+            InteractivelySelectWorkflowCommand, LangCommands, ListLanguagesCommand, ListWorkflowsCommand,
+            ResolveArgumentsCommand, SetLanguageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCli,
+            WorkflowCliCommand, WorkflowCommand
+        },
+        error::WorkflowError,
+        workflow::WorkflowContext
     },
-    config
+    t, t_params
 };
 
-/// Main entry point for the workflow CLI application.
-///
-/// Parses command-line arguments and dispatches to the appropriate handler:
-/// - `--list`: Display all available workflows
-/// - `<file>`: Execute a specific workflow file
-/// - No arguments: Show interactive workflow selection menu
-///
-/// # Returns
-/// * `Ok(())` - Application completed successfully
-/// * `Err(anyhow::Error)` - Application error (file not found, parsing error, etc.)
 #[tokio::main]
-async fn main() -> Result<()> {
-    let cli = Cli::parse();
+async fn main() -> Result<(), WorkflowError> {
+    let guardian_ref = Guardian::spawn_system()
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to start actor system: {}", e)))?;
 
-    // Handle subcommands first
-    match &cli.command {
-        Some(Commands::Init) => {
-            return handle_init_command().await;
+    let cli = WorkflowCli::parse();
+    let context = WorkflowContext::new();
+
+    let result = match cli.command {
+        Some(WorkflowCliCommand::Sync { ssh_key, remote_url, branch }) => {
+            submit_command_to_actor_system(
+                &guardian_ref,
+                SyncWorkflowsCommand { ssh_key, remote_url, branch }.into(),
+                context
+            )
+            .await
         }
-        Some(Commands::Lang { command }) => {
-            return handle_lang_command(command).await;
+        Some(WorkflowCliCommand::Lang { command }) => match command {
+            LangCommands::Set { language } => {
+                submit_command_to_actor_system(&guardian_ref, SetLanguageCommand { language }.into(), context).await
+            }
+            LangCommands::Current => {
+                submit_command_to_actor_system(&guardian_ref, GetCurrentLanguageCommand.into(), context).await
+            }
+            LangCommands::List => {
+                submit_command_to_actor_system(&guardian_ref, ListLanguagesCommand.into(), context).await
+            }
+        },
+        Some(WorkflowCliCommand::List) => {
+            submit_command_to_actor_system(&guardian_ref, DiscoverWorkflowsCommand.into(), context.clone()).await?;
+            submit_command_to_actor_system(&guardian_ref, ListWorkflowsCommand.into(), context).await
         }
-        Some(Commands::Resource { command }) => {
-            return handle_resource_command(command).await;
-        }
-        Some(Commands::Sync { url, ssh_key }) => {
-            return handle_sync_command(url.as_deref(), ssh_key.as_deref()).await;
+        Some(WorkflowCliCommand::File { .. }) => {
+            println!("{}", t!("error_file_workflow_execution_not_yet_implemented_in_actor_system"));
+            Ok(())
         }
         None => {
-            // Continue with normal workflow execution logic
+            submit_command_to_actor_system(&guardian_ref, DiscoverWorkflowsCommand.into(), context.clone()).await?;
+            submit_command_to_actor_system(&guardian_ref, InteractivelySelectWorkflowCommand.into(), context.clone())
+                .await?;
+            submit_command_to_actor_system(&guardian_ref, StartWorkflowCommand.into(), context.clone()).await?;
+            submit_command_to_actor_system(&guardian_ref, ResolveArgumentsCommand.into(), context.clone()).await?;
+            submit_command_to_actor_system(&guardian_ref, CompleteWorkflowCommand.into(), context.clone()).await?;
+
+            Ok(())
         }
+    };
+
+    if let Err(e) = guardian_ref.cast(workflow::actor::GuardianMessage::Shutdown) {
+        eprintln!("{}", t_params!("error_failed_to_shutdown_actor_system", &[&format!("{:?}", e)]));
     }
 
-    if cli.list {
-        return list_workflows().await;
-    }
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    if let Some(file_path) = &cli.file {
-        let full_path = if Path::new(file_path).is_absolute() || file_path.contains('/') {
-            file_path.to_string()
-        } else {
-            // Look in the workflows config directory
-            let workflows_dir = config::get_workflows_dir().context("Failed to get workflows directory")?;
-            workflows_dir.join(file_path).to_string_lossy().to_string()
-        };
-        execute_workflow(&full_path).await
-    } else {
-        select_and_execute_workflow().await
+    result
+}
+
+/// Submit a command to the actor system via the Guardian
+async fn submit_command_to_actor_system(
+    guardian_ref: &ActorRef<GuardianMessage>,
+    command: WorkflowCommand,
+    context: WorkflowContext
+) -> Result<(), WorkflowError> {
+    match call(
+        guardian_ref,
+        |reply| GuardianMessage::SubmitCommand { command, context, reply },
+        Some(std::time::Duration::from_secs(30))
+    )
+    .await
+    {
+        Ok(CallResult::Success(Ok(()))) => Ok(()),
+        Ok(CallResult::Success(Err(e))) => {
+            Err(WorkflowError::Generic(t_params!("error_command_processing_failed", &[&format!("{:?}", e)])))
+        }
+        Ok(CallResult::Timeout) => Err(WorkflowError::Generic(t!("error_command_processing_timed_out"))),
+        Ok(_) => Err(WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))),
+        Err(e) => Err(WorkflowError::Generic(t_params!("error_failed_to_submit_command", &[&format!("{:?}", e)])))
     }
 }
