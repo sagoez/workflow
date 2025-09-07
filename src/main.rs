@@ -7,7 +7,7 @@
 //! - **Interactive Workflow Selection**: Run without arguments to choose from available workflows
 //! - **Direct Execution**: Specify a workflow file directly as an argument
 //! - **Workflow Discovery**: List all available workflows with descriptions
-//! - **Smart File Resolution**: Automatically looks in the `resource/` directory
+//! - **Smart File Resolution**: Automatically looks in the `workflows/` directory
 //! - **Rich User Experience**: Progress indicators, spinners, and interactive prompts
 //!
 //! ## Usage
@@ -25,7 +25,7 @@
 //!
 //! ## Workflow File Location
 //!
-//! The CLI looks for workflow YAML files in the `resource/` directory relative to the
+//! The CLI looks for workflow YAML files in the `workflows/` directory relative to the
 //! current working directory. Files can have `.yaml` or `.yml` extensions.
 
 use clap::Parser;
