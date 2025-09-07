@@ -7,8 +7,11 @@
 //! - **Interactive Workflow Selection**: Run without arguments to choose from available workflows
 //! - **Direct Execution**: Specify a workflow file directly as an argument
 //! - **Workflow Discovery**: List all available workflows with descriptions
-//! - **Smart File Resolution**: Automatically looks in the `workflows/` directory
+//! - **Smart File Resolution**: Automatically looks in the `resource/` directory
 //! - **Rich User Experience**: Progress indicators, spinners, and interactive prompts
+//! - **Actor-based Architecture**: Built on Ractor for robust, fault-tolerant execution
+//! - **Event Sourcing**: Commands emit events for reliable state management
+//! - **Internationalization**: Multi-language support with translation keys
 //!
 //! ## Usage
 //!
@@ -21,12 +24,25 @@
 //!
 //! # List all available workflows
 //! workflow --list
+//!
+//! # Sync workflows from remote repository
+//! workflow sync --ssh-key ~/.ssh/id_rsa --remote-url git@github.com:user/workflows.git
+//!
+//! # Language management
+//! workflow lang set en
+//! workflow lang current
+//! workflow lang list
 //! ```
 //!
 //! ## Workflow File Location
 //!
-//! The CLI looks for workflow YAML files in the `workflows/` directory relative to the
-//! current working directory. Files can have `.yaml` or `.yml` extensions.
+//! The CLI looks for workflow YAML files in the system configuration directory:
+//! - **macOS**: `~/Library/Application Support/workflow/workflows/`
+//! - **Linux**: `~/.config/workflow/workflows/`
+//! - **Windows**: `%APPDATA%/workflow/workflows/`
+//!
+//! Files can have `.yaml` or `.yml` extensions. Use the `sync` command to populate
+//! this directory from a remote Git repository.
 
 use clap::Parser;
 use ractor::{

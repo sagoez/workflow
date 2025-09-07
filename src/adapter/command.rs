@@ -141,7 +141,7 @@ macro_rules! impl_command {
 impl_command!(WorkflowCommand {
     DiscoverWorkflows(cmd),
     ListWorkflows(cmd),
-    SelectWorkflow(cmd),
+    InteractivelySelectWorkflow(cmd),
     StartWorkflow(cmd),
     CompleteWorkflow(cmd),
     ResolveArguments(cmd),

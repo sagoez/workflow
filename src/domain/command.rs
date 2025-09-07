@@ -124,7 +124,7 @@ pub enum WorkflowCommand {
     // Workflow management
     DiscoverWorkflows(DiscoverWorkflowsCommand),
     ListWorkflows(ListWorkflowsCommand),
-    SelectWorkflow(InteractivelySelectWorkflowCommand),
+    InteractivelySelectWorkflow(InteractivelySelectWorkflowCommand),
     StartWorkflow(StartWorkflowCommand),
     CompleteWorkflow(CompleteWorkflowCommand),
     ResolveArguments(ResolveArgumentsCommand),
@@ -177,7 +177,7 @@ impl Into<WorkflowCommand> for ListWorkflowsCommand {
 
 impl Into<WorkflowCommand> for InteractivelySelectWorkflowCommand {
     fn into(self) -> WorkflowCommand {
-        WorkflowCommand::SelectWorkflow(self)
+        WorkflowCommand::InteractivelySelectWorkflow(self)
     }
 }
 
