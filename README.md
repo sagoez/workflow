@@ -58,8 +58,6 @@ Don't worry! There are still plenty of opportunities to add more unnecessary com
 
 If you don't know how to install a rust program, you should probably go check yourself.
 
-```
-
 ## Configuration
 
 Code is.. self explanatory?
