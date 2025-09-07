@@ -76,7 +76,7 @@ This project is licensed under the "Why Did I Do This To Myself" license.
 
 **Disclaimer**: No bash scripts were harmed in the making of this application. All complexity was added voluntarily and with full knowledge of the consequences.
 
-**Note**: I'm so hard-headed that I debated for three days whether to use AI to help write the README. In the end, I gave in and decided to let the AI write the entire thing. All hail [vibe coding](https://vibemanifesto.org/).
+**Note**: I'm so hard-headed that I debated for three days whether to use AI to help write the README. In the end, I gave in and decided to let the AI write the entire thing (like the whole CLI). All hail [vibe coding](https://vibemanifesto.org/).
 
 
 **Even more notes just because I like this note at the bottom thingy**: I'll probably add gifs (and emojis) on how to use it later.
