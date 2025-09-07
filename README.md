@@ -1,30 +1,33 @@
 # 🎭 Workflow CLI: The Most Overengineered YAML Runner in Existence
 
-Welcome to the **Workflow CLI** - a command-line tool that takes the simple concept of "run a bash command from a YAML file" and turns it into a distributed, actor-based, event-sourced, internationalized, fault-tolerant masterpiece of unnecessary complexity! 🚀
+Welcome to the **Workflow CLI** - a terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows) that takes the simple concept of "parameterized commands from YAML files" and turns it into a distributed, actor-based, event-sourced, internationalized, fault-tolerant masterpiece of unnecessary complexity! 🚀
 
 ## What Does This Thing Actually Do?
 
-At its core, this application does something absolutely revolutionary: it reads YAML files and... **copies commands to your clipboard**. That's it. No execution. No running. Just good old-fashioned Ctrl+V material.
-
-I know, I know - we could have just used `cat file.yaml | grep command | pbcopy`, but where's the fun in that? Instead, why not build a distributed, fault-tolerant, event-sourced clipboard manager with actors, journals, and internationalized error messages?
+At its core, this application does something absolutely revolutionary: it reads YAML workflow files (dynamicallyresolvescommandargumentsthroughinteractivepromptsbutwhocares) and... **copies the final command to your clipboard**. That's it. No execution. No running. Just good old-fashioned parameterized Ctrl+V material. Think of it as Warp Workflows for people who refuse to leave their beloved terminal.
 
 ## Features That Nobody Asked For
 
-- 🎪 **Interactive Workflow Selection**: Choose your YAML file through a beautiful CLI menu (because `ls *.yaml` is for peasants)
+- 🎪 **Interactive Workflow Selection**: Choose your YAML workflow through a beautiful CLI menu (because `ls *.yaml` is for peasants)
+- 🔧 **Dynamic Argument Resolution**: Interactive prompts for command parameters (just like Warp, but with 10x more code)
 - 🎭 **Actor Supervision Trees**: Guardian actors watching WorkflowManager actors watching CommandProcessor actors (it's turtles all the way down)
-- 📚 **Event Journaling**: Every clipboard copy is persisted as an event (because what if you need to replay that `echo "hello"` copy operation?)
-- 🌍 **Multi-language Support**: Clipboard errors in English AND Spanish (porque los errores de portapapeles son internacionales)
-- 🔄 **Command Chaining**: Commands can schedule other clipboard operations (because clipboard recursion is fun)
+- 📚 **Event Journaling**: Every parameter substitution is persisted as an event (because what if you need to replay that `kubectl get pods -n {{namespace}}` resolution?)
+- 🌍 **Multi-language Support**: Parameter prompt errors in English AND Spanish (porque los errores de parámetros son internacionales)
+- 🔄 **Command Chaining**: Workflows can trigger other workflows (because parameterized recursion is fun)
 - 📦 **Pluggable Storage**: Swap between in-memory and... well, just in-memory for now (but the abstraction is there!)
 
 ## Usage
 
 ```bash
+# The Warp way (modern but requires Warp)
+# Use Warp's built-in workflow system with nice UI
+
 # The simple way (boring)
-cat my-commands.yaml | grep command | pbcopy
+# Manually edit your YAML files and copy-paste commands
 
 # The ENTERPRISE way (exciting!)
 workflow
+# Interactive workflow selection → parameter prompts → clipboard magic!
 # Now paste with Cmd+V like a true enterprise developer!
 ```
 
@@ -41,17 +44,15 @@ Guardian Actor
 └── Supervision Strategy (Because Actors Need Babysitting™)
 ```
 
-Each YAML file selection spawns its own CommandProcessor actor with its own Engine instance and Journal for maximum isolation. Because you never know when copying `ls -la` to clipboard might crash the entire system.
+Each YAML workflow selection spawns its own CommandProcessor actor with its own Engine instance and Journal for maximum isolation. Because you never know when resolving `kubectl get pods -n {{namespace}}` parameters might crash the entire system.
 
 ## Still Not Overengineered Enough?
 
 Don't worry! There are still plenty of opportunities to add more unnecessary complexity:
 
 - [ ] **Distributed Mode**: Why run on one machine when you can have a cluster?
-- [ ] **GraphQL API**: Because REST is so 2010
 - [ ] **Blockchain Integration**: Probably?
 - [ ] **Machine Learning**: AI-powered YAML file recommendations, because the hype train might end soon
-- [ ] **Service Mesh**: Because even bash commands need Istio
 - [ ] **Event Streaming**: Kafka for command events (obviously)
 
 ## Installation
