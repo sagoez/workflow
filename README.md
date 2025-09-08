@@ -83,3 +83,5 @@ This project is licensed under the "Why Did I Do This To Myself" license.
 **Even more notes just because I like this note at the bottom thingy**: I'll probably add gifs (and emojis) on how to use it later.
 
 **On a more serious note**: I do use this on a daily basis LOL. Just because my memory fails me and is convenient.
+
+Companion project: https://github.com/sagoez/workflow-vault
