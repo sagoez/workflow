@@ -108,7 +108,6 @@ async fn main() -> Result<(), WorkflowError> {
                 .await?;
             submit_command_to_actor_system(&guardian_ref, StartWorkflowCommand.into(), context.clone()).await?;
             submit_command_to_actor_system(&guardian_ref, ResolveArgumentsCommand.into(), context.clone()).await?;
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             submit_command_to_actor_system(&guardian_ref, CompleteWorkflowCommand.into(), context.clone()).await?;
 
             Ok(())
@@ -138,13 +137,20 @@ async fn submit_command_to_actor_system(
     .await
     {
         Ok(CallResult::Success(Ok(()))) => Ok(()),
-        Ok(CallResult::Success(Err(e))) => {
-            Err(WorkflowError::Generic(t_params!("error_command_processing_failed", &[&format!("{:?}", e)])))
-        }
+        Ok(CallResult::Success(Err(e))) => Err(e),
         Ok(CallResult::Timeout) => Err(WorkflowError::Generic(t!("error_command_processing_timed_out"))),
         Ok(_) => Err(WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))),
         Err(e) => {
-            Err(WorkflowError::Generic(t_params!("error_failed_to_submit_command", &[&format!("{:?}", e.to_string())])))
+            let workflow_error = match e {
+                ractor::MessagingErr::SendErr(_) => {
+                    WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))
+                }
+                ractor::MessagingErr::ChannelClosed => WorkflowError::Generic(t!("error_workflow_manager_call_failed")),
+                ractor::MessagingErr::InvalidActorType => {
+                    WorkflowError::Generic(t!("error_actor_system_not_initialized"))
+                }
+            };
+            Err(workflow_error)
         }
     }
 }

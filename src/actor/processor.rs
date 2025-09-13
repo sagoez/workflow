@@ -78,8 +78,10 @@ impl Actor for CommandProcessor {
         state: &mut Self::State
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            CommandProcessorMessage::ProcessCommand { command } => {
-                self.handle_process_command(myself, command, state).await
+            CommandProcessorMessage::ProcessCommand { command, reply } => {
+                let result = self.handle_process_command(myself, command, state).await;
+                let _ = reply.send(result);
+                Ok(())
             }
             CommandProcessorMessage::ScheduleCommand { command } => {
                 // Just process it directly - no need for complex scheduling

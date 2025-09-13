@@ -9,7 +9,10 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr};
+use ractor::{
+    Actor, ActorProcessingErr, ActorRef, SpawnErr,
+    rpc::{CallResult, call}
+};
 use tracing::{Level, event};
 
 use crate::{
@@ -79,10 +82,7 @@ impl Actor for WorkflowManager {
                 let result = self.handle_submit_command(myself, command, *context, state).await;
                 let response = match &result {
                     Ok(_) => Ok(()),
-                    Err(e) => Err(WorkflowError::Generic(t_params!(
-                        "error_failed_to_submit_command",
-                        &[&format!("{:?}", e.to_string())]
-                    )))
+                    Err(e) => Err(WorkflowError::Execution(e.to_string()))
                 };
                 if let Err(e) = reply.send(response) {
                     event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED, error = %e);
@@ -146,13 +146,51 @@ impl WorkflowManager {
             }
         };
 
-        if let Err(e) = processor_ref.cast(CommandProcessorMessage::ProcessCommand { command }) {
-            event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
-                   session_id = %session_id, error = ?e, message = "failed_to_send_command");
-            return Err(ActorProcessingErr::from(t_params!(
-                "error_failed_to_send_command_to_processor",
-                &[&format!("{:?}", e)]
-            )));
+        // Use call to get the actual command processing result
+        match call(
+            &processor_ref,
+            |reply| CommandProcessorMessage::ProcessCommand { command: command.clone(), reply },
+            Some(std::time::Duration::from_secs(30))
+        )
+        .await
+        {
+            Ok(CallResult::Success(Ok(()))) => {
+                // Command processed successfully
+                event!(Level::DEBUG, event = workflow_manager::COMMAND_SUBMITTED,
+                       session_id = %session_id, message = "command_processed_successfully");
+            }
+            Ok(CallResult::Success(Err(e))) => {
+                // Command processing failed - this is the real error
+                event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
+                       session_id = %session_id, error = ?e, message = "command_processing_failed");
+
+                // Return a clean error without wrapping
+                return Err(e);
+            }
+            Ok(CallResult::Timeout) => {
+                // Call timed out
+                event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
+                       session_id = %session_id, message = "call_timeout");
+                return Err(ActorProcessingErr::from(t_params!("error_command_timeout", &[&"30 seconds"])));
+            }
+            Ok(CallResult::SenderError) => {
+                // Sender error
+                event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
+                       session_id = %session_id, message = "sender_error");
+                return Err(ActorProcessingErr::from(t_params!(
+                    "error_failed_to_send_command_to_processor",
+                    &[&"Sender error"]
+                )));
+            }
+            Err(e) => {
+                // Failed to send command to processor (actor is dead)
+                event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
+                       session_id = %session_id, error = ?e, message = "failed_to_send_command");
+                return Err(ActorProcessingErr::from(t_params!(
+                    "error_failed_to_send_command_to_processor",
+                    &[&format!("{:?}", e)]
+                )));
+            }
         }
 
         state.total_commands_processed += 1;

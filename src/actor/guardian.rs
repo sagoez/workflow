@@ -182,7 +182,8 @@ impl Guardian {
             .await
             {
                 Ok(CallResult::Success(result)) => {
-                    if let Err(e) = reply.send(result) {
+                    let workflow_result = result.map_err(|e| WorkflowError::Execution(e.to_string()));
+                    if let Err(e) = reply.send(workflow_result) {
                         event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %e);
                     }
                 }
@@ -192,10 +193,18 @@ impl Guardian {
                     }
                 }
                 Err(e) => {
-                    if let Err(send_err) = reply.send(Err(WorkflowError::Generic(t_params!(
-                        "error_failed_to_submit_command",
-                        &[&format!("{:?}", e.to_string())]
-                    )))) {
+                    let workflow_error = match e {
+                        ractor::MessagingErr::SendErr(_) => {
+                            WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))
+                        }
+                        ractor::MessagingErr::ChannelClosed => {
+                            WorkflowError::Generic(t!("error_workflow_manager_call_failed"))
+                        }
+                        ractor::MessagingErr::InvalidActorType => {
+                            WorkflowError::Generic(t!("error_actor_system_not_initialized"))
+                        }
+                    };
+                    if let Err(send_err) = reply.send(Err(workflow_error)) {
                         event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %send_err);
                     }
                 }

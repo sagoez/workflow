@@ -1,67 +1,111 @@
+use std::fmt;
+
 use thiserror::Error;
 
+use crate::t_params;
+
 /// Common error types for the workflow system
-#[derive(Error, Debug, Clone)]
+#[derive(Clone, Error)]
 pub enum WorkflowError {
     /// File system related errors
-    #[error("{0}")]
     FileSystem(String),
 
     /// Configuration related errors
-    #[error("{0}")]
     Configuration(String),
 
     /// Validation errors
-    #[error("{0}")]
     Validation(String),
 
     /// Command execution errors
-    #[error("{0}")]
     Execution(String),
 
     /// Event processing errors
-    #[error("{0}")]
     Event(String),
 
     /// User interaction errors
-    #[error("{0}")]
     UserInteraction(String),
 
     /// Network/IO errors
-    #[error("{0}")]
     Network(String),
 
     /// Serialization/deserialization errors
-    #[error("{0}")]
     Serialization(String),
 
     /// Spawn errors
-    #[error("{0}")]
     Spawn(String),
 
     /// Unsupported language
-    #[error("{0}")]
     UnsupportedLanguage(String),
 
     /// Recovery errors
-    #[error("{0}")]
     Recovery(String),
 
     /// Journal write errors
-    #[error("{0}")]
     JournalWrite(String),
 
     /// Snapshot errors
-    #[error("{0}")]
     Snapshot(String),
 
     /// Timeout errors
-    #[error("{0}")]
     Timeout(String),
 
     /// Generic errors with context
-    #[error("{0}")]
     Generic(String)
+}
+
+impl fmt::Display for WorkflowError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let msg = match self {
+            WorkflowError::FileSystem(msg) => t_params!("error_file_system", &[msg]),
+            WorkflowError::Configuration(msg) => t_params!("error_configuration", &[msg]),
+            WorkflowError::Validation(msg) => t_params!("error_validation", &[msg]),
+            WorkflowError::Execution(msg) => {
+                if msg.contains("🚫") || msg.contains("❌") || msg.contains("📁") || msg.contains("⚙️") {
+                    msg.clone()
+                } else {
+                    t_params!("error_execution", &[msg])
+                }
+            }
+            WorkflowError::Event(msg) => t_params!("error_event", &[msg]),
+            WorkflowError::UserInteraction(msg) => t_params!("error_user_interaction", &[msg]),
+            WorkflowError::Network(msg) => t_params!("error_network", &[msg]),
+            WorkflowError::Serialization(msg) => t_params!("error_serialization", &[msg]),
+            WorkflowError::Spawn(msg) => t_params!("error_spawn", &[msg]),
+            WorkflowError::UnsupportedLanguage(msg) => t_params!("error_unsupported_language", &[msg]),
+            WorkflowError::Recovery(msg) => t_params!("error_recovery", &[msg]),
+            WorkflowError::JournalWrite(msg) => t_params!("error_journal_write", &[msg]),
+            WorkflowError::Snapshot(msg) => t_params!("error_snapshot", &[msg]),
+            WorkflowError::Timeout(msg) => t_params!("error_timeout", &[msg]),
+            WorkflowError::Generic(msg) => t_params!("error_generic", &[msg])
+        };
+
+        if msg.contains('\n') && msg.contains("└─") {
+            return write!(f, "{}", msg);
+        }
+
+        if msg.contains('\n') && msg.lines().any(|line| line.trim().starts_with("  ")) {
+            return write!(f, "{}", msg);
+        }
+
+        let parts: Vec<&str> = msg.split(':').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+
+        if parts.len() <= 1 {
+            write!(f, "{}", msg)
+        } else {
+            let mut result = vec![parts[0].to_string()];
+            for (i, part) in parts.iter().enumerate().skip(1) {
+                let indent = "  ".repeat(i);
+                result.push(format!("{}└─ {}", indent, part));
+            }
+            write!(f, "{}", result.join("\n"))
+        }
+    }
+}
+
+impl fmt::Debug for WorkflowError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
 }
 
 /// Convert from anyhow::Error

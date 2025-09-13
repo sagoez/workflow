@@ -263,14 +263,14 @@ impl Command for InteractivelySelectWorkflowCommand {
         if let WorkflowState::WorkflowsDiscovered(state) = current_state {
             let workflows: Vec<Workflow> = state.discovered_workflows.to_vec();
 
-            let selected_workflow = Select::new(&t!("select_workflow"), workflows.clone())
-                .with_page_size(10)
-                .prompt()
-                .map_err(|e| WorkflowError::Validation(t_params!("error_selection_failed", &[&e.to_string()])))?;
+            let selected_workflow =
+                Select::new(&t!("select_workflow"), workflows.clone()).with_page_size(10).prompt().map_err(|e| {
+                    WorkflowError::Validation(t_params!("error_selection_failed", &["workflow", &e.to_string()]))
+                })?;
 
             Ok(InteractivelySelectWorkflowData { workflow: selected_workflow.clone() })
         } else {
-            Err(WorkflowError::Validation(t!("error_workflows_must_be_listed_first")))
+            Err(WorkflowError::Validation(t!("error_workflows_not_discovered_yet")))
         }
     }
 

@@ -1,6 +1,6 @@
 //! Typed messages for actor communication
 
-use ractor::{Message, RpcReplyPort};
+use ractor::{ActorProcessingErr, Message, RpcReplyPort};
 
 use crate::domain::{
     command::WorkflowCommand, error::WorkflowError, event::WorkflowEvent, state::WorkflowState,
@@ -42,10 +42,10 @@ pub enum WorkflowManagerMessage {
 }
 
 /// Messages for CommandProcessor actors (per-session)
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum CommandProcessorMessage {
     /// Process a workflow command
-    ProcessCommand { command: WorkflowCommand },
+    ProcessCommand { command: WorkflowCommand, reply: RpcReplyPort<Result<(), ActorProcessingErr>> },
     /// Schedule a follow-up command (from within command effects)
     ScheduleCommand { command: WorkflowCommand },
     /// Complete the session
