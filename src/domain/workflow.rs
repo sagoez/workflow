@@ -174,3 +174,9 @@ impl WorkflowContext {
         context
     }
 }
+
+impl Default for WorkflowContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}

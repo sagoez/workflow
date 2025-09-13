@@ -30,6 +30,12 @@ impl InMemoryJournal {
     }
 }
 
+impl Default for InMemoryJournal {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl Journal for InMemoryJournal {
     async fn persist_events(&self, session_id: &str, events: &[WorkflowEvent]) -> Result<(), WorkflowError> {

@@ -115,10 +115,6 @@ pub struct GetCurrentLanguageCommand;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ListLanguagesCommand;
 
-// **********************
-// Workflow Commands - All commands in the system
-// **********************
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WorkflowCommand {
     // Workflow management
@@ -139,68 +135,68 @@ pub enum WorkflowCommand {
     ListLanguages(ListLanguagesCommand)
 }
 
-impl Into<WorkflowCommand> for SyncWorkflowsCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::SyncWorkflows(self)
+impl From<SyncWorkflowsCommand> for WorkflowCommand {
+    fn from(val: SyncWorkflowsCommand) -> Self {
+        WorkflowCommand::SyncWorkflows(val)
     }
 }
 
-impl Into<WorkflowCommand> for SetLanguageCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::SetLanguage(self)
+impl From<SetLanguageCommand> for WorkflowCommand {
+    fn from(val: SetLanguageCommand) -> Self {
+        WorkflowCommand::SetLanguage(val)
     }
 }
 
-impl Into<WorkflowCommand> for GetCurrentLanguageCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::GetCurrentLanguage(self)
+impl From<GetCurrentLanguageCommand> for WorkflowCommand {
+    fn from(val: GetCurrentLanguageCommand) -> Self {
+        WorkflowCommand::GetCurrentLanguage(val)
     }
 }
 
-impl Into<WorkflowCommand> for ListLanguagesCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::ListLanguages(self)
+impl From<ListLanguagesCommand> for WorkflowCommand {
+    fn from(val: ListLanguagesCommand) -> Self {
+        WorkflowCommand::ListLanguages(val)
     }
 }
 
-impl Into<WorkflowCommand> for DiscoverWorkflowsCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::DiscoverWorkflows(self)
+impl From<DiscoverWorkflowsCommand> for WorkflowCommand {
+    fn from(val: DiscoverWorkflowsCommand) -> Self {
+        WorkflowCommand::DiscoverWorkflows(val)
     }
 }
 
-impl Into<WorkflowCommand> for ListWorkflowsCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::ListWorkflows(self)
+impl From<ListWorkflowsCommand> for WorkflowCommand {
+    fn from(val: ListWorkflowsCommand) -> Self {
+        WorkflowCommand::ListWorkflows(val)
     }
 }
 
-impl Into<WorkflowCommand> for InteractivelySelectWorkflowCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::InteractivelySelectWorkflow(self)
+impl From<InteractivelySelectWorkflowCommand> for WorkflowCommand {
+    fn from(val: InteractivelySelectWorkflowCommand) -> Self {
+        WorkflowCommand::InteractivelySelectWorkflow(val)
     }
 }
 
-impl Into<WorkflowCommand> for StartWorkflowCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::StartWorkflow(self)
+impl From<StartWorkflowCommand> for WorkflowCommand {
+    fn from(val: StartWorkflowCommand) -> Self {
+        WorkflowCommand::StartWorkflow(val)
     }
 }
 
-impl Into<WorkflowCommand> for RecordSyncResultCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::RecordSyncResult(self)
+impl From<RecordSyncResultCommand> for WorkflowCommand {
+    fn from(val: RecordSyncResultCommand) -> Self {
+        WorkflowCommand::RecordSyncResult(val)
     }
 }
 
-impl Into<WorkflowCommand> for ResolveArgumentsCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::ResolveArguments(self)
+impl From<ResolveArgumentsCommand> for WorkflowCommand {
+    fn from(val: ResolveArgumentsCommand) -> Self {
+        WorkflowCommand::ResolveArguments(val)
     }
 }
 
-impl Into<WorkflowCommand> for CompleteWorkflowCommand {
-    fn into(self) -> WorkflowCommand {
-        WorkflowCommand::CompleteWorkflow(self)
+impl From<CompleteWorkflowCommand> for WorkflowCommand {
+    fn from(val: CompleteWorkflowCommand) -> Self {
+        WorkflowCommand::CompleteWorkflow(val)
     }
 }

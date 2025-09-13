@@ -15,7 +15,7 @@ pub enum GuardianMessage {
     /// Submit a command for processing
     SubmitCommand {
         command: WorkflowCommand,
-        context: WorkflowContext,
+        context: Box<WorkflowContext>,
         reply:   RpcReplyPort<Result<(), WorkflowError>>
     },
     /// Shutdown the entire system
@@ -30,7 +30,7 @@ pub enum WorkflowManagerMessage {
     /// Submit a new workflow command for processing
     SubmitCommand {
         command: WorkflowCommand,
-        context: WorkflowContext,
+        context: Box<WorkflowContext>,
         reply:   RpcReplyPort<Result<(), WorkflowError>>
     },
     /// Session completed successfully

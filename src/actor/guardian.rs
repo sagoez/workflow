@@ -7,7 +7,7 @@
 
 use std::{sync::Arc, time::SystemTime};
 
-use ractor::{Actor, ActorProcessingErr, ActorRef, SpawnErr, rpc::CallResult};
+use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort, SpawnErr, rpc::CallResult};
 use tracing::{Level, event};
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
         manager::WorkflowManager,
         message::{GuardianMessage, SystemHealth, WorkflowManagerMessage}
     },
-    domain::{constant::guardian, error::WorkflowError},
+    domain::{command::WorkflowCommand, constant::guardian, error::WorkflowError, workflow::WorkflowContext},
     t, t_params
 };
 
@@ -60,7 +60,7 @@ impl Actor for Guardian {
             GuardianMessage::Shutdown => self.handle_shutdown(state).await,
             GuardianMessage::HealthCheck { reply } => self.handle_health_check(reply, state).await,
             GuardianMessage::SubmitCommand { command, context, reply } => {
-                self.handle_submit_command(command, context, reply, state).await
+                self.handle_submit_command(command, *context, reply, state).await
             }
         }
     }
@@ -164,15 +164,19 @@ impl Guardian {
     /// Handle command submission
     async fn handle_submit_command(
         &self,
-        command: crate::domain::command::WorkflowCommand,
-        context: crate::domain::workflow::WorkflowContext,
-        reply: ractor::RpcReplyPort<Result<(), WorkflowError>>,
+        command: WorkflowCommand,
+        context: WorkflowContext,
+        reply: RpcReplyPort<Result<(), WorkflowError>>,
         state: &GuardianState
     ) -> Result<(), ActorProcessingErr> {
         if let Some(workflow_manager) = &state.workflow_manager {
             match ractor::rpc::call(
                 workflow_manager,
-                |wm_reply| WorkflowManagerMessage::SubmitCommand { command, context, reply: wm_reply },
+                |wm_reply| WorkflowManagerMessage::SubmitCommand {
+                    command,
+                    context: Box::new(context),
+                    reply: wm_reply
+                },
                 None
             )
             .await
@@ -190,16 +194,14 @@ impl Guardian {
                 Err(e) => {
                     if let Err(send_err) = reply.send(Err(WorkflowError::Generic(t_params!(
                         "error_failed_to_submit_command",
-                        &[&format!("{:?}", e)]
+                        &[&format!("{:?}", e.to_string())]
                     )))) {
                         event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %send_err);
                     }
                 }
             }
-        } else {
-            if let Err(e) = reply.send(Err(WorkflowError::Generic(t!("error_actor_system_not_initialized")))) {
-                event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %e);
-            }
+        } else if let Err(e) = reply.send(Err(WorkflowError::Generic(t!("error_actor_system_not_initialized")))) {
+            event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %e);
         }
 
         Ok(())

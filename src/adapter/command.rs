@@ -11,9 +11,9 @@ use crate::{
     domain::{
         command::{
             CompleteWorkflowCommand, DiscoverWorkflowsCommand, DiscoverWorkflowsData, GetCurrentLanguageCommand,
-            ListLanguagesCommand, ListWorkflowsCommand, RecordSyncResultCommand, ResolveArgumentsCommand,
-            ResolveArgumentsData, InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData, SetLanguageCommand, StartWorkflowCommand,
-            SyncWorkflowsCommand, WorkflowCommand
+            InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData, ListLanguagesCommand,
+            ListWorkflowsCommand, RecordSyncResultCommand, ResolveArgumentsCommand, ResolveArgumentsData,
+            SetLanguageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
         },
         engine::EngineContext,
         error::WorkflowError,
@@ -39,7 +39,8 @@ macro_rules! impl_command {
         #[async_trait]
         impl Command for $enum_name {
             type Error = WorkflowError;
-            type LoadedData = Box<dyn std::any::Any + Send + Sync>; // Generic type since each command has different data
+            type LoadedData = Box<dyn std::any::Any + Send + Sync>; // Generic type since each command has
+                // different data
 
             async fn load(
                 &self,
@@ -176,18 +177,16 @@ impl Command for DiscoverWorkflowsCommand {
             let entry = entry.map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
             let path = entry.path();
 
-            if path.is_file() {
-                if let Some(extension) = path.extension() {
-                    if extension == "yaml" || extension == "yml" {
-                        let content =
-                            fs::read_to_string(&path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+            if path.is_file()
+                && let Some(extension) = path.extension()
+                && (extension == "yaml" || extension == "yml")
+            {
+                let content = fs::read_to_string(&path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
 
-                        let workflow: Workflow =
-                            serde_yaml::from_str(&content).map_err(|e| WorkflowError::Serialization(e.to_string()))?;
+                let workflow: Workflow =
+                    serde_yaml::from_str(&content).map_err(|e| WorkflowError::Serialization(e.to_string()))?;
 
-                        workflows.push(workflow);
-                    }
-                }
+                workflows.push(workflow);
             }
         }
 
@@ -262,7 +261,7 @@ impl Command for InteractivelySelectWorkflowCommand {
         current_state: &WorkflowState
     ) -> Result<Self::LoadedData, Self::Error> {
         if let WorkflowState::WorkflowsDiscovered(state) = current_state {
-            let workflows: Vec<Workflow> = state.discovered_workflows.iter().map(|w| w.clone()).collect();
+            let workflows: Vec<Workflow> = state.discovered_workflows.to_vec();
 
             let selected_workflow = Select::new(&t!("select_workflow"), workflows.clone())
                 .with_page_size(10)
@@ -736,10 +735,7 @@ async fn resolve_argument(
             } else if let (Some(enum_command), Some(_enum_name)) = (&arg.enum_command, &arg.enum_name) {
                 resolve_enum_argument(arg, enum_command, current_values).await
             } else {
-                return Err(WorkflowError::Validation(t_params!(
-                    "error_enum_argument_missing_configuration",
-                    &[&arg.name]
-                )));
+                Err(WorkflowError::Validation(t_params!("error_enum_argument_missing_configuration", &[&arg.name])))
             }
         }
         ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => resolve_simple_argument(arg)
@@ -756,7 +752,7 @@ async fn resolve_enum_argument(
         if let Some(ref_value) = current_values.get(ref_arg) {
             enum_command.replace(&format!("{{{{{}}}}}", ref_arg), ref_value)
         } else {
-            return Err(WorkflowError::Validation(t_params!("error_dynamic_resolution_failed", &[&ref_arg])));
+            return Err(WorkflowError::Validation(t_params!("error_dynamic_resolution_failed", &[ref_arg])));
         }
     } else {
         enum_command.to_string()
@@ -801,10 +797,11 @@ fn resolve_simple_argument(arg: &WorkflowArgument) -> Result<String, WorkflowErr
     let prompt = format!("Enter {}", arg.name);
     let mut text_input = Text::new(&prompt);
 
-    if let Some(default_value) = &arg.default_value {
-        if !default_value.is_empty() && default_value != "~" {
-            text_input = text_input.with_default(default_value);
-        }
+    if let Some(default_value) = &arg.default_value
+        && !default_value.is_empty()
+        && default_value != "~"
+    {
+        text_input = text_input.with_default(default_value);
     }
 
     let result = text_input
@@ -934,12 +931,11 @@ impl Command for RecordSyncResultCommand {
                 .filter_map(|entry| {
                     let entry = entry.ok()?;
                     let path = entry.path();
-                    if path.is_file() {
-                        if let Some(ext) = path.extension() {
-                            if ext == "yaml" || ext == "yml" {
-                                return Some(());
-                            }
-                        }
+                    if path.is_file()
+                        && let Some(ext) = path.extension()
+                        && (ext == "yaml" || ext == "yml")
+                    {
+                        return Some(());
                     }
                     None
                 })

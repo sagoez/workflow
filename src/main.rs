@@ -90,6 +90,7 @@ async fn main() -> Result<(), WorkflowError> {
                 submit_command_to_actor_system(&guardian_ref, GetCurrentLanguageCommand.into(), context).await
             }
             LangCommands::List => {
+                submit_command_to_actor_system(&guardian_ref, DiscoverWorkflowsCommand.into(), context.clone()).await?;
                 submit_command_to_actor_system(&guardian_ref, ListLanguagesCommand.into(), context).await
             }
         },
@@ -107,6 +108,7 @@ async fn main() -> Result<(), WorkflowError> {
                 .await?;
             submit_command_to_actor_system(&guardian_ref, StartWorkflowCommand.into(), context.clone()).await?;
             submit_command_to_actor_system(&guardian_ref, ResolveArgumentsCommand.into(), context.clone()).await?;
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             submit_command_to_actor_system(&guardian_ref, CompleteWorkflowCommand.into(), context.clone()).await?;
 
             Ok(())
@@ -130,7 +132,7 @@ async fn submit_command_to_actor_system(
 ) -> Result<(), WorkflowError> {
     match call(
         guardian_ref,
-        |reply| GuardianMessage::SubmitCommand { command, context, reply },
+        |reply| GuardianMessage::SubmitCommand { command, context: Box::new(context), reply },
         Some(std::time::Duration::from_secs(30))
     )
     .await
@@ -141,6 +143,8 @@ async fn submit_command_to_actor_system(
         }
         Ok(CallResult::Timeout) => Err(WorkflowError::Generic(t!("error_command_processing_timed_out"))),
         Ok(_) => Err(WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))),
-        Err(e) => Err(WorkflowError::Generic(t_params!("error_failed_to_submit_command", &[&format!("{:?}", e)])))
+        Err(e) => {
+            Err(WorkflowError::Generic(t_params!("error_failed_to_submit_command", &[&format!("{:?}", e.to_string())])))
+        }
     }
 }

@@ -76,12 +76,13 @@ impl Actor for WorkflowManager {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             WorkflowManagerMessage::SubmitCommand { command, context, reply } => {
-                let result = self.handle_submit_command(myself, command, context, state).await;
+                let result = self.handle_submit_command(myself, command, *context, state).await;
                 let response = match &result {
                     Ok(_) => Ok(()),
-                    Err(e) => {
-                        Err(WorkflowError::Generic(t_params!("error_failed_to_submit_command", &[&format!("{:?}", e)])))
-                    }
+                    Err(e) => Err(WorkflowError::Generic(t_params!(
+                        "error_failed_to_submit_command",
+                        &[&format!("{:?}", e.to_string())]
+                    )))
                 };
                 if let Err(e) = reply.send(response) {
                     event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED, error = %e);

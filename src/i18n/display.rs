@@ -1,4 +1,9 @@
-use std::{collections::HashMap, env, path::PathBuf, sync::OnceLock};
+use std::{
+    collections::HashMap,
+    env,
+    path::{Path, PathBuf},
+    sync::OnceLock
+};
 
 use crate::i18n::{
     Language,
@@ -33,7 +38,7 @@ impl TextManager {
     }
 
     /// Read the current language from the config file
-    fn read_current_language_from_config(config_dir: &PathBuf) -> Option<Language> {
+    fn read_current_language_from_config(config_dir: &Path) -> Option<Language> {
         let lang_file = config_dir.join("language.txt");
         if lang_file.exists() {
             if let Ok(content) = std::fs::read_to_string(&lang_file) {
