@@ -155,26 +155,21 @@ impl WorkflowManager {
         .await
         {
             Ok(CallResult::Success(Ok(()))) => {
-                // Command processed successfully
                 event!(Level::DEBUG, event = workflow_manager::COMMAND_SUBMITTED,
                        session_id = %session_id, message = "command_processed_successfully");
             }
             Ok(CallResult::Success(Err(e))) => {
-                // Command processing failed - this is the real error
                 event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
                        session_id = %session_id, error = ?e, message = "command_processing_failed");
 
-                // Return a clean error without wrapping
                 return Err(e);
             }
             Ok(CallResult::Timeout) => {
-                // Call timed out
                 event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
                        session_id = %session_id, message = "call_timeout");
                 return Err(ActorProcessingErr::from(t_params!("error_command_timeout", &[&"30 seconds"])));
             }
             Ok(CallResult::SenderError) => {
-                // Sender error
                 event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
                        session_id = %session_id, message = "sender_error");
                 return Err(ActorProcessingErr::from(t_params!(
@@ -183,7 +178,6 @@ impl WorkflowManager {
                 )));
             }
             Err(e) => {
-                // Failed to send command to processor (actor is dead)
                 event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
                        session_id = %session_id, error = ?e, message = "failed_to_send_command");
                 return Err(ActorProcessingErr::from(t_params!(
@@ -206,7 +200,6 @@ impl WorkflowManager {
         session_id: &str,
         app_context: Arc<AppContext>
     ) -> Result<ActorRef<CommandProcessorMessage>, SpawnErr> {
-        // Create engine and journal for this session
         let engine = EngineFactory::init(EventStoreType::InMemory, (*app_context).clone());
         let journal = JournalFactory::create(JournalType::InMemory);
 
@@ -283,9 +276,9 @@ impl WorkflowManager {
                    total_failed = %state.total_sessions_failed);
 
             // For unrecoverable failures:
-            // 1. Alert operations team
+            // 1. Alert operations team LOL
             // 2. Mark session as permanently failed
-            // 3. Clean up resources
+            // 3. Clean up resources (copy pasting is resource heaaaaavy)
         }
 
         Ok(())
