@@ -3,15 +3,14 @@ use chrono::{DateTime, Utc};
 use crate::{
     domain::{
         event::{
-            AggregateReplayedEvent, AggregatesListedEvent, AvailableLanguagesListedEvent,
-            AvailableWorkflowsListedEvent, CurrentLanguageRetrievedEvent, LanguageSetEvent, SyncRequestedEvent,
-            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
-            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            AggregateReplayedEvent, AggregatesListedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent,
+            SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent,
+            WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
         state::{
-            AvailableLanguagesListedState, CurrentLanguageRetrievedState, LanguageSetState, SyncRequestedState,
-            WorkflowArgumentsResolvedState, WorkflowCompletedState, WorkflowSelectedState, WorkflowStartedState,
-            WorkflowState, WorkflowsDiscoveredState, WorkflowsListedState, WorkflowsSyncedState
+            LanguageSetState, SyncRequestedState, WorkflowArgumentsResolvedState, WorkflowCompletedState,
+            WorkflowSelectedState, WorkflowStartedState, WorkflowState, WorkflowsDiscoveredState, WorkflowsListedState,
+            WorkflowsSyncedState
         }
     },
     port::event::Event
@@ -358,74 +357,6 @@ impl Event for LanguageSetEvent {
     }
 }
 
-impl Event for CurrentLanguageRetrievedEvent {
-    fn apply(&self, _current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
-        // Language retrieval can happen from any state - always transitions to CurrentLanguageRetrieved
-        Some(WorkflowState::CurrentLanguageRetrieved(CurrentLanguageRetrievedState {
-            language:     self.language.clone(),
-            retrieved_at: self.timestamp
-        }))
-    }
-
-    fn event_type(&self) -> &'static str {
-        "current-language-retrieved"
-    }
-
-    fn timestamp(&self) -> DateTime<Utc> {
-        self.timestamp
-    }
-
-    fn event_id(&self) -> &str {
-        &self.event_id
-    }
-
-    fn to_json(&self) -> serde_json::Result<String> {
-        serde_json::to_string(self)
-    }
-
-    fn state_type(&self) -> &'static str {
-        "workflow-state"
-    }
-
-    fn clone_event(&self) -> Box<dyn Event> {
-        Box::new(self.clone())
-    }
-}
-
-impl Event for AvailableLanguagesListedEvent {
-    fn apply(&self, _current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
-        // Language listing can happen from any state - always transitions to AvailableLanguagesListed
-        Some(WorkflowState::AvailableLanguagesListed(AvailableLanguagesListedState {
-            languages: self.languages.clone(),
-            listed_at: self.timestamp
-        }))
-    }
-
-    fn event_type(&self) -> &'static str {
-        "available-languages-listed"
-    }
-
-    fn timestamp(&self) -> DateTime<Utc> {
-        self.timestamp
-    }
-
-    fn event_id(&self) -> &str {
-        &self.event_id
-    }
-
-    fn to_json(&self) -> serde_json::Result<String> {
-        serde_json::to_string(self)
-    }
-
-    fn state_type(&self) -> &'static str {
-        "workflow-state"
-    }
-
-    fn clone_event(&self) -> Box<dyn Event> {
-        Box::new(self.clone())
-    }
-}
-
 macro_rules! impl_event {
     ($enum_name:ident { $($variant:ident($field:ident)),* $(,)? }) => {
         impl Event for $enum_name {
@@ -498,8 +429,6 @@ impl_event!(WorkflowEvent {
     SyncRequested(event),
     WorkflowsSynced(event),
     LanguageSet(event),
-    CurrentLanguageRetrieved(event),
-    AvailableLanguagesListed(event),
     AggregatesListed(event),
     AggregateReplayed(event)
 });

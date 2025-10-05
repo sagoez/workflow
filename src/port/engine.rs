@@ -39,6 +39,7 @@ pub trait Engine: Send + Sync + 'static {
     /// This handles the side effects and external operations
     async fn effect(
         &self,
+        loaded_data: &Box<dyn std::any::Any + Send + Sync>,
         command: WorkflowCommand,
         previous_state: &WorkflowState,
         current_state: &WorkflowState,

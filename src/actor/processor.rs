@@ -126,21 +126,25 @@ impl CommandProcessor {
         context: &EngineContext,
         state: &mut CommandProcessorState
     ) -> Result<(), WorkflowError> {
-        // 1. Engine processes command (pure business logic)
+        // 1. Load command data
+        let loaded_data = command.load(context, &state.app_context, &state.current_state).await?;
+
+        // 2. Engine processes command (pure business logic)
         let events = state.engine.process_command(command.clone(), context, &state.current_state).await?;
 
-        // 2. Persist events to journal (session_id as persistence_id)
+        // 3. Persist events to journal (session_id as persistence_id)
         if !events.is_empty() {
             state.journal.persist_events(&state.session_id, &events).await?;
         }
 
-        // 3. Apply events to get new state
+        // 4. Apply events to get new state
+        let previous_state = state.current_state.clone();
         let boxed_events: Vec<Box<dyn crate::port::event::Event>> =
             events.iter().map(|e| Box::new(e.clone()) as Box<dyn crate::port::event::Event>).collect();
         state.current_state = state.engine.handle_events(&state.current_state, &boxed_events)?;
 
-        // 4. Execute effects (side effects)
-        state.engine.effect(command.clone(), &state.current_state, &state.current_state, context).await?;
+        // 5. Execute effects (side effects)
+        state.engine.effect(&loaded_data, command.clone(), &previous_state, &state.current_state, context).await?;
 
         Ok(())
     }

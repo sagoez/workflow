@@ -72,6 +72,7 @@ pub trait Command: Debug + Send + Sync {
     /// - Execute system commands
     async fn effect(
         &self,
+        loaded_data: &Self::LoadedData,
         previous_state: &WorkflowState,
         current_state: &WorkflowState,
         context: &EngineContext,

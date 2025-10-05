@@ -33,11 +33,7 @@ pub enum WorkflowState {
     /// Workflows have been synced from git repository
     WorkflowsSynced(WorkflowsSyncedState),
     /// Language has been set
-    LanguageSet(LanguageSetState),
-    /// Current language has been retrieved
-    CurrentLanguageRetrieved(CurrentLanguageRetrievedState),
-    /// Available languages have been listed
-    AvailableLanguagesListed(AvailableLanguagesListedState)
+    LanguageSet(LanguageSetState)
 }
 
 impl Default for WorkflowState {
@@ -145,10 +141,6 @@ pub struct WorkflowsSyncedState {
     pub synced_at:    DateTime<Utc>
 }
 
-// **********************
-// Language Management States
-// **********************
-
 /// State after language has been set
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanguageSetState {
@@ -156,22 +148,4 @@ pub struct LanguageSetState {
     pub language: String,
     /// Timestamp when language was set
     pub set_at:   DateTime<Utc>
-}
-
-/// State after current language has been retrieved
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurrentLanguageRetrievedState {
-    /// The current language
-    pub language:     String,
-    /// Timestamp when language was retrieved
-    pub retrieved_at: DateTime<Utc>
-}
-
-/// State after available languages have been listed
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AvailableLanguagesListedState {
-    /// List of available languages
-    pub languages: Vec<String>,
-    /// Timestamp when languages were listed
-    pub listed_at: DateTime<Utc>
 }

@@ -79,19 +79,18 @@ impl Engine for EngineV1 {
 
     async fn effect(
         &self,
+        loaded_data: &Box<dyn std::any::Any + Send + Sync>,
         command: WorkflowCommand,
         previous_state: &WorkflowState,
         current_state: &WorkflowState,
         context: &EngineContext
     ) -> Result<(), WorkflowError> {
         command
-            .effect(previous_state, current_state, context, &self.app_context)
+            .effect(loaded_data, previous_state, current_state, context, &self.app_context)
             .await
             .map_err(|e| WorkflowError::Execution(t_params!("effect_phase_failed", &[&e.to_string()])))?;
         Ok(())
     }
-
-    // Persistence methods removed - handled by PersistentActor
 
     fn engine_name(&self) -> &'static str {
         "EngineV1"

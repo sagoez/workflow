@@ -21,10 +21,9 @@ use crate::{
         engine::EngineContext,
         error::WorkflowError,
         event::{
-            AggregateReplayedEvent, AggregatesListedEvent, AvailableLanguagesListedEvent,
-            AvailableWorkflowsListedEvent, CurrentLanguageRetrievedEvent, LanguageSetEvent, SyncRequestedEvent,
-            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
-            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            AggregateReplayedEvent, AggregatesListedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent,
+            SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent,
+            WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
         state::WorkflowState,
         workflow::{ArgumentType, Workflow, WorkflowArgument}
@@ -94,6 +93,7 @@ macro_rules! impl_command {
 
             async fn effect(
                 &self,
+                loaded_data: &Self::LoadedData,
                 previous_state: &WorkflowState,
                 current_state: &WorkflowState,
                 context: &EngineContext,
@@ -102,7 +102,9 @@ macro_rules! impl_command {
                 match self {
                     $(
                         $enum_name::$variant($field) => {
-                            $field.effect(previous_state, current_state, context, app_context).await
+                            let loaded_data = loaded_data.downcast_ref().ok_or_else(||
+                                WorkflowError::Generic(t!("error_failed_to_downcast_loaded_data").to_string()))?;
+                            $field.effect(loaded_data, previous_state, current_state, context, app_context).await
                         }
                     )*
                 }
@@ -238,6 +240,7 @@ impl Command for DiscoverWorkflowsCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
@@ -313,6 +316,7 @@ impl Command for InteractivelySelectWorkflowCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -397,6 +401,7 @@ impl Command for ListWorkflowsCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -481,6 +486,7 @@ impl Command for StartWorkflowCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -572,6 +578,7 @@ impl Command for ResolveArgumentsCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -673,6 +680,7 @@ impl Command for CompleteWorkflowCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -880,6 +888,7 @@ impl Command for SyncWorkflowsCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         context: &EngineContext,
@@ -995,6 +1004,7 @@ impl Command for RecordSyncResultCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -1056,6 +1066,7 @@ impl Command for SetLanguageCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
@@ -1112,35 +1123,23 @@ impl Command for GetCurrentLanguageCommand {
 
     async fn emit(
         &self,
-        loaded_data: &Self::LoadedData,
+        _loaded_data: &Self::LoadedData,
         _context: &EngineContext,
         _app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let event = CurrentLanguageRetrievedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now(),
-            language:  loaded_data.clone()
-        };
-
-        Ok(vec![WorkflowEvent::CurrentLanguageRetrieved(event)])
+        Ok(vec![])
     }
 
     async fn effect(
         &self,
+        loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
+        _current_state: &WorkflowState,
         _context: &EngineContext,
         _app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::CurrentLanguageRetrieved(state) => {
-                println!("{}", t_params!("lang_current", &[&state.language]));
-            }
-            _ => {
-                return Err(WorkflowError::Validation("Invalid state for current language".to_string()));
-            }
-        }
+        println!("{}", t_params!("lang_current", &[&loaded_data]));
         Ok(())
     }
 
@@ -1182,38 +1181,26 @@ impl Command for ListLanguagesCommand {
 
     async fn emit(
         &self,
-        loaded_data: &Self::LoadedData,
+        _loaded_data: &Self::LoadedData,
         _context: &EngineContext,
         _app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let event = AvailableLanguagesListedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now(),
-            languages: loaded_data.clone()
-        };
-
-        Ok(vec![WorkflowEvent::AvailableLanguagesListed(event)])
+        Ok(vec![])
     }
 
     async fn effect(
         &self,
+        loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
+        _current_state: &WorkflowState,
         _context: &EngineContext,
         _app_context: &AppContext
     ) -> Result<(), Self::Error> {
         println!("{}", t!("lang_available_languages"));
         println!();
-        match current_state {
-            WorkflowState::AvailableLanguagesListed(state) => {
-                for language in &state.languages {
-                    println!("  - {}", language);
-                }
-            }
-            _ => {
-                return Err(WorkflowError::Validation("Invalid state for list languages".to_string()));
-            }
+        for language in loaded_data {
+            println!("  - {}", language);
         }
         Ok(())
     }
@@ -1266,6 +1253,7 @@ impl Command for SetStorageCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
@@ -1322,6 +1310,7 @@ impl Command for GetCurrentStorageCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
@@ -1386,6 +1375,7 @@ impl Command for ListAggregatesCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
@@ -1451,6 +1441,7 @@ impl Command for PurgeStorageCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
@@ -1540,6 +1531,7 @@ impl Command for ReplayAggregateCommand {
 
     async fn effect(
         &self,
+        _loaded_data: &Self::LoadedData,
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
