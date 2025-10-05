@@ -1543,7 +1543,7 @@ impl Command for ReplayAggregateCommand {
         println!("{}", t_params!("storage_replay_aggregate", &[&self.aggregate_id]));
         println!("\n{}", t_params!("storage_replay_events_count", &[&events.len().to_string()]));
         println!("\n{}", t!("storage_replay_state"));
-        println!("{:#?}", state);
+        Self::display_state(&state);
         Ok(())
     }
 
@@ -1561,5 +1561,64 @@ impl Command for ReplayAggregateCommand {
 
     fn is_mutating(&self) -> bool {
         false
+    }
+}
+
+impl ReplayAggregateCommand {
+    fn display_state(state: &WorkflowState) {
+        use tabled::{Table, settings::Style};
+
+        match state {
+            WorkflowState::Initial(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowsDiscovered(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowsListed(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowSelected(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowStarted(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowArgumentsResolved(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowCompleted(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::SyncRequested(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::WorkflowsSynced(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+            WorkflowState::LanguageSet(s) => {
+                let mut table = Table::new([s]);
+                table.with(Style::rounded());
+                println!("{}", table);
+            }
+        }
     }
 }

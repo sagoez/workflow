@@ -26,9 +26,7 @@ impl Event for WorkflowDiscoveredEvent {
         match current {
             WorkflowState::Initial(_) => {
                 // First workflow discovered - create new WorkflowsDiscovered state
-                Some(WorkflowState::WorkflowsDiscovered(WorkflowsDiscoveredState {
-                    discovered_workflows: vec![self.workflow.clone()]
-                }))
+                Some(WorkflowState::WorkflowsDiscovered(WorkflowsDiscoveredState::new(vec![self.workflow.clone()])))
             }
             WorkflowState::WorkflowsDiscovered(state) => {
                 // Add workflow if not already discovered
@@ -36,7 +34,7 @@ impl Event for WorkflowDiscoveredEvent {
                 if !workflows.iter().any(|w| w.name == self.workflow.name) {
                     workflows.push(self.workflow.clone());
                 }
-                Some(WorkflowState::WorkflowsDiscovered(WorkflowsDiscoveredState { discovered_workflows: workflows }))
+                Some(WorkflowState::WorkflowsDiscovered(WorkflowsDiscoveredState::new(workflows)))
             }
             _ => None // Invalid transition - can only discover workflows from Initial or already discovered
         }
@@ -76,10 +74,10 @@ impl Event for WorkflowSelectedEvent {
             WorkflowState::WorkflowsDiscovered(state) => {
                 // Validate that the selected workflow exists in discovered workflows
                 if state.discovered_workflows.iter().any(|w| w.name == self.workflow.name) {
-                    Some(WorkflowState::WorkflowSelected(WorkflowSelectedState {
-                        discovered_workflows: state.discovered_workflows.clone(),
-                        selected_workflow:    self.workflow.clone()
-                    }))
+                    Some(WorkflowState::WorkflowSelected(WorkflowSelectedState::new(
+                        state.discovered_workflows.clone(),
+                        self.workflow.clone()
+                    )))
                 } else {
                     None // Workflow not found in discovered workflows
                 }
@@ -119,11 +117,11 @@ impl Event for WorkflowStartedEvent {
         let current = current_state.unwrap_or(&default_state);
 
         match current {
-            WorkflowState::WorkflowSelected(state) => Some(WorkflowState::WorkflowStarted(WorkflowStartedState {
-                discovered_workflows: state.discovered_workflows.clone(),
-                selected_workflow:    state.selected_workflow.clone(),
-                execution_id:         self.execution_id.clone()
-            })),
+            WorkflowState::WorkflowSelected(state) => Some(WorkflowState::WorkflowStarted(WorkflowStartedState::new(
+                state.discovered_workflows.clone(),
+                state.selected_workflow.clone(),
+                self.execution_id.clone()
+            ))),
             _ => None // Invalid transition - can only start a selected workflow
         }
     }
@@ -160,12 +158,12 @@ impl Event for WorkflowArgumentsResolvedEvent {
 
         match current {
             WorkflowState::WorkflowStarted(state) => {
-                Some(WorkflowState::WorkflowArgumentsResolved(WorkflowArgumentsResolvedState {
-                    discovered_workflows: state.discovered_workflows.clone(),
-                    selected_workflow:    state.selected_workflow.clone(),
-                    execution_id:         state.execution_id.clone(),
-                    resolved_arguments:   self.arguments.clone()
-                }))
+                Some(WorkflowState::WorkflowArgumentsResolved(WorkflowArgumentsResolvedState::new(
+                    state.discovered_workflows.clone(),
+                    state.selected_workflow.clone(),
+                    state.execution_id.clone(),
+                    self.arguments.clone()
+                )))
             }
             _ => None // Invalid transition - can only resolve arguments for a started workflow
         }
@@ -203,12 +201,12 @@ impl Event for WorkflowCompletedEvent {
 
         match current {
             WorkflowState::WorkflowArgumentsResolved(state) => {
-                Some(WorkflowState::WorkflowCompleted(WorkflowCompletedState {
-                    discovered_workflows: state.discovered_workflows.clone(),
-                    completed_workflow:   state.selected_workflow.clone(),
-                    execution_id:         state.execution_id.clone(),
-                    resolved_arguments:   state.resolved_arguments.clone()
-                }))
+                Some(WorkflowState::WorkflowCompleted(WorkflowCompletedState::new(
+                    state.discovered_workflows.clone(),
+                    state.selected_workflow.clone(),
+                    state.execution_id.clone(),
+                    state.resolved_arguments.clone()
+                )))
             }
             _ => None // Invalid transition - can only complete a workflow with resolved arguments
         }
@@ -247,13 +245,11 @@ impl Event for AvailableWorkflowsListedEvent {
         match current {
             WorkflowState::WorkflowsDiscovered(state) => {
                 // Transition from discovered to listed
-                Some(WorkflowState::WorkflowsListed(WorkflowsListedState {
-                    discovered_workflows: state.discovered_workflows.clone()
-                }))
+                Some(WorkflowState::WorkflowsListed(WorkflowsListedState::new(state.discovered_workflows.clone())))
             }
             WorkflowState::Initial(_) => {
                 // Handle case where no workflows were discovered - transition to listed with empty list
-                Some(WorkflowState::WorkflowsListed(WorkflowsListedState { discovered_workflows: vec![] }))
+                Some(WorkflowState::WorkflowsListed(WorkflowsListedState::new(vec![])))
             }
             _ => None // Invalid transition
         }
@@ -287,13 +283,13 @@ impl Event for AvailableWorkflowsListedEvent {
 impl Event for WorkflowsSyncedEvent {
     fn apply(&self, current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
         match current_state {
-            Some(WorkflowState::SyncRequested(_)) => Some(WorkflowState::WorkflowsSynced(WorkflowsSyncedState {
-                remote_url:   self.remote_url.clone(),
-                branch:       self.branch.clone(),
-                commit_id:    self.commit_id.clone(),
-                synced_count: self.synced_count,
-                synced_at:    self.timestamp
-            })),
+            Some(WorkflowState::SyncRequested(_)) => Some(WorkflowState::WorkflowsSynced(WorkflowsSyncedState::new(
+                self.remote_url.clone(),
+                self.branch.clone(),
+                self.commit_id.clone(),
+                self.synced_count,
+                self.timestamp
+            ))),
             _ => None // Invalid state transition
         }
     }
@@ -329,7 +325,7 @@ impl Event for WorkflowsSyncedEvent {
 impl Event for LanguageSetEvent {
     fn apply(&self, _current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
         // Language set can happen from any state - always transitions to LanguageSet
-        Some(WorkflowState::LanguageSet(LanguageSetState { language: self.language.clone(), set_at: self.timestamp }))
+        Some(WorkflowState::LanguageSet(LanguageSetState::new(self.language.clone(), self.timestamp)))
     }
 
     fn event_type(&self) -> &'static str {
@@ -436,11 +432,11 @@ impl_event!(WorkflowEvent {
 // Individual Event trait implementations
 impl Event for SyncRequestedEvent {
     fn apply(&self, _current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
-        Some(WorkflowState::SyncRequested(SyncRequestedState {
-            remote_url: self.remote_url.clone(),
-            branch:     self.branch.clone(),
-            ssh_key:    self.ssh_key.clone()
-        }))
+        Some(WorkflowState::SyncRequested(SyncRequestedState::new(
+            self.remote_url.clone(),
+            self.branch.clone(),
+            self.ssh_key.clone()
+        )))
     }
 
     fn event_type(&self) -> &'static str {
