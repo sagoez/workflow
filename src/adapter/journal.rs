@@ -83,7 +83,7 @@ impl Journal for InMemoryJournal {
 }
 
 pub struct RocksDbJournal {
-    db: Arc<DB>,
+    db:                 Arc<DB>,
     snapshot_threshold: u64
 }
 
@@ -103,7 +103,12 @@ impl RocksDbJournal {
         Ok(Self { db: Arc::new(db), snapshot_threshold })
     }
 
-    async fn create_snapshot(&self, session_id: &str, sequence: u64, events: &[WorkflowEvent]) -> Result<(), WorkflowError> {
+    async fn create_snapshot(
+        &self,
+        session_id: &str,
+        sequence: u64,
+        events: &[WorkflowEvent]
+    ) -> Result<(), WorkflowError> {
         use crate::{domain::state::WorkflowState, port::event::Event};
 
         let session_id = session_id.to_string();
@@ -141,12 +146,12 @@ impl Journal for RocksDbJournal {
             return Ok(());
         }
 
-        let session_id = session_id.to_string();
+        let session_id_owned = session_id.to_string();
         let db = self.db.clone();
-        let events = events.to_vec();
+        let events_to_store = events.to_vec();
 
         tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
-            let key = format!("journal:{}", session_id);
+            let key = format!("journal:{}", session_id_owned);
 
             let mut all_events: Vec<WorkflowEvent> = match db.get(key.as_bytes()) {
                 Ok(Some(data)) => serde_json::from_slice(&data).map_err(|e| {
@@ -156,7 +161,7 @@ impl Journal for RocksDbJournal {
                 Err(e) => return Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
             };
 
-            all_events.extend(events);
+            all_events.extend(events_to_store);
 
             let serialized = serde_json::to_vec(&all_events)
                 .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize journal events: {}", e)))?;
@@ -169,10 +174,64 @@ impl Journal for RocksDbJournal {
         .await
         .map_err(|e| WorkflowError::Generic(format!("Failed to persist journal events: {}", e)))??;
 
+        let sequence = self.highest_sequence_nr(session_id).await?;
+        if sequence % self.snapshot_threshold == 0 {
+            let all_events = tokio::task::spawn_blocking({
+                let db = self.db.clone();
+                let session_id = session_id.to_string();
+                move || -> Result<Vec<WorkflowEvent>, WorkflowError> {
+                    let key = format!("journal:{}", session_id);
+                    match db.get(key.as_bytes()) {
+                        Ok(Some(data)) => serde_json::from_slice(&data)
+                            .map_err(|e| WorkflowError::Serialization(format!("Failed to deserialize: {}", e))),
+                        Ok(None) => Ok(vec![]),
+                        Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read: {}", e)))
+                    }
+                }
+            })
+            .await
+            .map_err(|e| WorkflowError::Generic(format!("Failed to read events: {}", e)))??;
+
+            self.create_snapshot(session_id, sequence, &all_events).await?;
+        }
+
         Ok(())
     }
 
     async fn replay_events(&self, session_id: &str, from_sequence: u64) -> Result<Vec<WorkflowEvent>, WorkflowError> {
+        let session_id_owned = session_id.to_string();
+        let db = self.db.clone();
+
+        let snapshot_sequence = tokio::task::spawn_blocking(move || -> Result<Option<u64>, WorkflowError> {
+            let snapshot_prefix = format!("snapshot:{}:", session_id_owned);
+            let seek_key = format!("snapshot:{}:{}", session_id_owned, u64::MAX);
+
+            let mut iter = db.raw_iterator();
+            iter.seek_for_prev(seek_key.as_bytes());
+
+            if iter.valid() {
+                if let Some(key_bytes) = iter.key() {
+                    let key_str = String::from_utf8_lossy(key_bytes);
+
+                    if key_str.starts_with(&snapshot_prefix) {
+                        let parts: Vec<&str> = key_str.split(':').collect();
+                        if parts.len() == 3 {
+                            let sequence = parts[2]
+                                .parse::<u64>()
+                                .map_err(|e| WorkflowError::Serialization(format!("Invalid sequence: {}", e)))?;
+                            return Ok(Some(sequence));
+                        }
+                    }
+                }
+            }
+
+            Ok(None)
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to find snapshot: {}", e)))??;
+
+        let skip_until = snapshot_sequence.unwrap_or(0).max(from_sequence);
+
         let session_id = session_id.to_string();
         let db = self.db.clone();
 
@@ -184,7 +243,7 @@ impl Journal for RocksDbJournal {
                     let events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
                         WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
-                    Ok(events.into_iter().skip(from_sequence as usize).collect())
+                    Ok(events.into_iter().skip(skip_until as usize).collect())
                 }
                 Ok(None) => Ok(vec![]),
                 Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
