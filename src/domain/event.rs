@@ -231,17 +231,17 @@ pub struct AvailableLanguagesListedEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Aggregates listed event - emitted when aggregate IDs are queried
 pub struct AggregatesListedEvent {
-    pub event_id:       String,
-    pub timestamp:      DateTime<Utc>,
-    pub aggregate_ids:  Vec<String>,
+    pub event_id:        String,
+    pub timestamp:       DateTime<Utc>,
+    pub aggregate_ids:   Vec<String>,
     pub aggregate_count: usize
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Aggregate replayed event - emitted when an aggregate's events are replayed
 pub struct AggregateReplayedEvent {
-    pub event_id:      String,
-    pub timestamp:     DateTime<Utc>,
-    pub aggregate_id:  String,
-    pub events_count:  usize
+    pub event_id:     String,
+    pub timestamp:    DateTime<Utc>,
+    pub aggregate_id: String,
+    pub events_count: usize
 }

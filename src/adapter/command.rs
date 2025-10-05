@@ -1479,7 +1479,7 @@ impl Command for PurgeStorageCommand {
         })
         .await
         .map_err(|e| WorkflowError::Generic(format!("Failed to purge storage: {}", e)))??;
-        
+
         println!("{}", t!("storage_purge_success"));
         Ok(())
     }
