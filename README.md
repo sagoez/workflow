@@ -53,7 +53,7 @@ Don't worry! There are still plenty of opportunities to add more unnecessary com
 - [ ] **Distributed Mode**: Why run on one machine when you can have a cluster?
 - [ ] **Blockchain Integration**: Probably?
 - [ ] **Machine Learning**: AI-powered YAML file recommendations, because the hype train might end soon
-- [ ] **Event Streaming**: Kafka for command events (obviously)
+- [ ] **Event Streaming**: Kafka for commands/events (obviously)
 
 ## Installation
 
