@@ -73,7 +73,14 @@ pub enum StorageCommands {
         backend: crate::adapter::storage::EventStoreType
     },
     /// Show current storage backend
-    Current
+    Current,
+    /// List all aggregate IDs
+    List,
+    /// Replay events for a specific aggregate ID
+    Replay {
+        /// Aggregate ID to replay
+        aggregate_id: String
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -141,6 +148,14 @@ pub struct SetStorageCommand {
 pub struct GetCurrentStorageCommand;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ListAggregatesCommand;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ReplayAggregateCommand {
+    pub aggregate_id: String
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WorkflowCommand {
     // Workflow management
     DiscoverWorkflows(DiscoverWorkflowsCommand),
@@ -161,7 +176,9 @@ pub enum WorkflowCommand {
 
     // Storage management
     SetStorage(SetStorageCommand),
-    GetCurrentStorage(GetCurrentStorageCommand)
+    GetCurrentStorage(GetCurrentStorageCommand),
+    ListAggregates(ListAggregatesCommand),
+    ReplayAggregate(ReplayAggregateCommand)
 }
 
 impl From<SyncWorkflowsCommand> for WorkflowCommand {
@@ -197,6 +214,18 @@ impl From<SetStorageCommand> for WorkflowCommand {
 impl From<GetCurrentStorageCommand> for WorkflowCommand {
     fn from(val: GetCurrentStorageCommand) -> Self {
         WorkflowCommand::GetCurrentStorage(val)
+    }
+}
+
+impl From<ListAggregatesCommand> for WorkflowCommand {
+    fn from(val: ListAggregatesCommand) -> Self {
+        WorkflowCommand::ListAggregates(val)
+    }
+}
+
+impl From<ReplayAggregateCommand> for WorkflowCommand {
+    fn from(val: ReplayAggregateCommand) -> Self {
+        WorkflowCommand::ReplayAggregate(val)
     }
 }
 

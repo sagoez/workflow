@@ -143,6 +143,11 @@ impl EventStore for InMemoryEventStore {
             Ok(vec![])
         }
     }
+
+    async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError> {
+        let event_store = self.events.read().await;
+        Ok(event_store.keys().cloned().collect())
+    }
 }
 
 #[cfg(test)]
@@ -310,23 +315,15 @@ mod tests {
 /// - `snapshot:{aggregate_id}:{sequence}` -> WorkflowState (state snapshot at sequence)
 /// - `seq:{aggregate_id}` -> u64 (current sequence number)
 pub struct RocksDbEventStore {
-    db:                 Arc<DB>,
-    cache:              Arc<RwLock<HashMap<String, WorkflowState>>>,
-    /// Number of events between snapshots (default: 10)
-    snapshot_threshold: u64
+    db:    Arc<DB>,
+    cache: Arc<RwLock<HashMap<String, WorkflowState>>>
 }
 
 // Note: RocksDbEventStore doesn't implement Default because it requires a valid file path
 // Use RocksDbEventStore::new(path) instead
 
 impl RocksDbEventStore {
-    /// Create a new RocksDB event store at the specified path
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, WorkflowError> {
-        Self::with_snapshot_threshold(path, 10)
-    }
-
-    /// Create a new RocksDB event store with custom snapshot threshold
-    pub fn with_snapshot_threshold<P: AsRef<Path>>(path: P, snapshot_threshold: u64) -> Result<Self, WorkflowError> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compression_type(rocksdb::DBCompressionType::Snappy);
@@ -334,67 +331,18 @@ impl RocksDbEventStore {
         let db =
             DB::open(&opts, path).map_err(|e| WorkflowError::FileSystem(format!("Failed to open RocksDB: {}", e)))?;
 
-        Ok(Self { db: Arc::new(db), cache: Arc::new(RwLock::new(HashMap::new())), snapshot_threshold })
+        Ok(Self { db: Arc::new(db), cache: Arc::new(RwLock::new(HashMap::new())) })
     }
 
-    /// Apply events to state to rebuild current state using snapshots
-    ///
-    /// Algorithm:
-    /// 1. Find latest snapshot (if any)
-    /// 2. Load snapshot as starting state, or use default
-    /// 3. Get events after snapshot sequence
-    /// 4. Replay only those events
-    /// 5. Cache the rebuilt state
     async fn rebuild_state(&self, aggregate_id: &str) -> Result<WorkflowState, WorkflowError> {
-        let db = self.db.clone();
-        let aggregate_id_owned = aggregate_id.to_string();
-
-        let (starting_state, from_sequence) =
-            tokio::task::spawn_blocking(move || -> Result<(WorkflowState, u64), WorkflowError> {
-                let snapshot_prefix = format!("snapshot:{}:", aggregate_id_owned);
-                let seek_key = format!("snapshot:{}:{}", aggregate_id_owned, u64::MAX);
-
-                let mut iter = db.raw_iterator();
-                iter.seek_for_prev(seek_key.as_bytes());
-
-                if iter.valid() {
-                    if let Some(key_bytes) = iter.key() {
-                        let key_str = String::from_utf8_lossy(key_bytes);
-
-                        if key_str.starts_with(&snapshot_prefix) {
-                            let parts: Vec<&str> = key_str.split(':').collect();
-                            if parts.len() == 3 {
-                                let sequence = parts[2].parse::<u64>().map_err(|e| {
-                                    WorkflowError::Serialization(format!("Invalid sequence in snapshot key: {}", e))
-                                })?;
-
-                                if let Some(value_bytes) = iter.value() {
-                                    let state: WorkflowState = serde_json::from_slice(value_bytes).map_err(|e| {
-                                        WorkflowError::Serialization(format!("Failed to deserialize snapshot: {}", e))
-                                    })?;
-
-                                    return Ok((state, sequence + 1));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Ok((WorkflowState::default(), 0))
-            })
-            .await
-            .map_err(|e| WorkflowError::Generic(format!("Failed to load snapshot: {}", e)))??;
-
         let events = self.get_events_internal(aggregate_id).await?;
-        let mut current_state = starting_state;
+        let mut current_state = WorkflowState::default();
 
-        for (idx, aggregate_event) in events.into_iter().enumerate() {
-            if (idx as u64) >= from_sequence {
-                if let Some(new_state) = aggregate_event.data.apply(Some(&current_state)) {
-                    current_state = new_state;
-                } else {
-                    return Err(WorkflowError::Validation(t!("error_failed_to_apply_event")));
-                }
+        for aggregate_event in events {
+            if let Some(new_state) = aggregate_event.data.apply(Some(&current_state)) {
+                current_state = new_state;
+            } else {
+                return Err(WorkflowError::Validation(t!("error_failed_to_apply_event")));
             }
         }
 
@@ -404,78 +352,12 @@ impl RocksDbEventStore {
         Ok(current_state)
     }
 
-    /// Create a snapshot of the current state
-    async fn create_snapshot(
-        &self,
-        aggregate_id: &str,
-        sequence: u64,
-        state: &WorkflowState
-    ) -> Result<(), WorkflowError> {
-        let db = self.db.clone();
-        let aggregate_id = aggregate_id.to_string();
-        let state = state.clone();
-
-        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
-            let key = format!("snapshot:{}:{}", aggregate_id, sequence);
-            let serialized = serde_json::to_vec(&state)
-                .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize snapshot: {}", e)))?;
-
-            db.put(key.as_bytes(), serialized)
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write snapshot: {}", e)))?;
-
-            Ok(())
-        })
-        .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to create snapshot: {}", e)))??;
-
-        Ok(())
-    }
-
-    /// Get current sequence number for an aggregate
-    async fn get_sequence(&self, aggregate_id: &str) -> Result<u64, WorkflowError> {
-        let db = self.db.clone();
-        let aggregate_id = aggregate_id.to_string();
-
-        tokio::task::spawn_blocking(move || -> Result<u64, WorkflowError> {
-            let key = format!("seq:{}", aggregate_id);
-            match db.get(key.as_bytes()) {
-                Ok(Some(data)) => {
-                    let seq_bytes: [u8; 8] = data
-                        .as_slice()
-                        .try_into()
-                        .map_err(|_| WorkflowError::Serialization("Invalid sequence number".to_string()))?;
-                    Ok(u64::from_le_bytes(seq_bytes))
-                }
-                Ok(None) => Ok(0),
-                Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read sequence: {}", e)))
-            }
-        })
-        .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to get sequence: {}", e)))?
-    }
-
-    /// Update sequence number for an aggregate
-    async fn set_sequence(&self, aggregate_id: &str, sequence: u64) -> Result<(), WorkflowError> {
-        let db = self.db.clone();
-        let aggregate_id = aggregate_id.to_string();
-
-        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
-            let key = format!("seq:{}", aggregate_id);
-            db.put(key.as_bytes(), &sequence.to_le_bytes())
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write sequence: {}", e)))?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to set sequence: {}", e)))?
-    }
-
-    /// Internal method to get events without using the trait
     async fn get_events_internal(&self, session_id: &str) -> Result<Vec<AggregateEvent>, WorkflowError> {
         let db = self.db.clone();
         let session_id = session_id.to_string();
 
         tokio::task::spawn_blocking(move || -> Result<Vec<AggregateEvent>, WorkflowError> {
-            let key = format!("events:{}", session_id);
+            let key = format!("journal:{}", session_id);
 
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
@@ -494,62 +376,7 @@ impl RocksDbEventStore {
 
 #[async_trait]
 impl EventStore for RocksDbEventStore {
-    /// Store multiple workflow events for a specific session/aggregate
-    async fn store_events(&self, session_id: &str, events: &[WorkflowEvent]) -> Result<(), WorkflowError> {
-        if events.is_empty() {
-            return Ok(());
-        }
-
-        let aggregate_id = session_id.to_string();
-        let aggregate_id_for_blocking = aggregate_id.clone();
-        let db = self.db.clone();
-        let events_to_store = events.to_vec();
-
-        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
-            let key = format!("events:{}", aggregate_id_for_blocking);
-
-            let mut all_events: Vec<AggregateEvent> = match db.get(key.as_bytes()) {
-                Ok(Some(data)) => serde_json::from_slice(&data).map_err(|e| {
-                    WorkflowError::Serialization(format!("Failed to deserialize existing events: {}", e))
-                })?,
-                Ok(None) => vec![],
-                Err(e) => return Err(WorkflowError::FileSystem(format!("Failed to read from RocksDB: {}", e)))
-            };
-
-            for event in events_to_store {
-                let metadata = EventMetadata::new(event.to_string()).with_aggregate_id(&aggregate_id_for_blocking);
-
-                let aggregate_event = AggregateEvent {
-                    aggregate_id: Some(aggregate_id_for_blocking.clone()),
-                    data:         event.clone(),
-                    metadata:     Some(metadata)
-                };
-
-                all_events.push(aggregate_event);
-            }
-
-            let serialized = serde_json::to_vec(&all_events)
-                .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize events: {}", e)))?;
-
-            db.put(key.as_bytes(), serialized)
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write to RocksDB: {}", e)))?;
-
-            Ok(())
-        })
-        .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to store events: {}", e)))??;
-
-        let new_sequence = self.get_sequence(&aggregate_id).await? + events.len() as u64;
-        self.set_sequence(&aggregate_id, new_sequence).await?;
-
-        if new_sequence % self.snapshot_threshold == 0 {
-            let current_state = self.rebuild_state(&aggregate_id).await?;
-            self.create_snapshot(&aggregate_id, new_sequence, &current_state).await?;
-        }
-
-        let mut cache = self.cache.write().await;
-        cache.remove(aggregate_id.as_str());
-
+    async fn store_events(&self, _session_id: &str, _events: &[WorkflowEvent]) -> Result<(), WorkflowError> {
         Ok(())
     }
 
@@ -570,13 +397,39 @@ impl EventStore for RocksDbEventStore {
         let workflow_events: Vec<WorkflowEvent> = aggregate_events.iter().map(|ae| ae.data.clone()).collect();
         Ok(workflow_events)
     }
+
+    async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError> {
+        let db = self.db.clone();
+        tokio::task::spawn_blocking(move || -> Result<Vec<String>, WorkflowError> {
+            let mut aggregate_ids = std::collections::HashSet::new();
+            let prefix = b"journal:";
+
+            let iter = db.iterator(rocksdb::IteratorMode::From(prefix, rocksdb::Direction::Forward));
+            for item in iter {
+                let (key, _) =
+                    item.map_err(|e| WorkflowError::FileSystem(format!("Failed to iterate RocksDB: {}", e)))?;
+                let key_str = String::from_utf8_lossy(&key);
+
+                if key_str.starts_with("journal:") {
+                    if let Some(aggregate_id) = key_str.strip_prefix("journal:") {
+                        aggregate_ids.insert(aggregate_id.to_string());
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            Ok(aggregate_ids.into_iter().collect())
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to list aggregates: {}", e)))?
+    }
 }
 
 /// Factory for creating event stores based on configuration
 pub struct EventStoreFactory;
 
 impl EventStoreFactory {
-    /// Create an event store based on the specified type
     pub fn create(store_type: EventStoreType, db_path: Option<&Path>) -> Result<Arc<dyn EventStore>, WorkflowError> {
         match store_type {
             EventStoreType::InMemory => Ok(Arc::new(InMemoryEventStore::new())),

@@ -14,9 +14,9 @@ use crate::{
         command::{
             CompleteWorkflowCommand, DiscoverWorkflowsCommand, DiscoverWorkflowsData, GetCurrentLanguageCommand,
             GetCurrentStorageCommand, InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData,
-            ListLanguagesCommand, ListWorkflowsCommand, RecordSyncResultCommand, ResolveArgumentsCommand,
-            ResolveArgumentsData, SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand,
-            WorkflowCommand
+            ListAggregatesCommand, ListLanguagesCommand, ListWorkflowsCommand, RecordSyncResultCommand,
+            ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData, SetLanguageCommand,
+            SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
         },
         engine::EngineContext,
         error::WorkflowError,
@@ -155,7 +155,9 @@ impl_command!(WorkflowCommand {
     GetCurrentLanguage(cmd),
     ListLanguages(cmd),
     SetStorage(cmd),
-    GetCurrentStorage(cmd)
+    GetCurrentStorage(cmd),
+    ListAggregates(cmd),
+    ReplayAggregate(cmd)
 });
 
 #[async_trait]
@@ -1334,6 +1336,133 @@ impl Command for GetCurrentStorageCommand {
 
     fn description(&self) -> &'static str {
         "Gets the current storage backend"
+    }
+
+    fn is_interactive(&self) -> bool {
+        false
+    }
+
+    fn is_mutating(&self) -> bool {
+        false
+    }
+}
+
+#[async_trait]
+impl Command for ListAggregatesCommand {
+    type Error = WorkflowError;
+    type LoadedData = Vec<String>;
+
+    async fn load(
+        &self,
+        _context: &EngineContext,
+        app_context: &AppContext,
+        _current_state: &WorkflowState
+    ) -> Result<Self::LoadedData, Self::Error> {
+        app_context.event_store.list_aggregates().await
+    }
+
+    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    async fn emit(
+        &self,
+        _loaded_data: &Self::LoadedData,
+        _context: &EngineContext,
+        _app_context: &AppContext,
+        _current_state: &WorkflowState
+    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
+        Ok(vec![])
+    }
+
+    async fn effect(
+        &self,
+        _previous_state: &WorkflowState,
+        _current_state: &WorkflowState,
+        _context: &EngineContext,
+        app_context: &AppContext
+    ) -> Result<(), Self::Error> {
+        let aggregate_ids = app_context.event_store.list_aggregates().await?;
+
+        if aggregate_ids.is_empty() {
+            println!("{}", t!("storage_no_aggregates"));
+        } else {
+            println!("{}", t_params!("storage_aggregates_count", &[&aggregate_ids.len().to_string()]));
+            for id in aggregate_ids {
+                println!("  {}", id);
+            }
+        }
+        Ok(())
+    }
+
+    fn name(&self) -> &'static str {
+        "list-aggregates"
+    }
+
+    fn description(&self) -> &'static str {
+        "Lists all aggregate IDs"
+    }
+
+    fn is_interactive(&self) -> bool {
+        false
+    }
+
+    fn is_mutating(&self) -> bool {
+        false
+    }
+}
+
+#[async_trait]
+impl Command for ReplayAggregateCommand {
+    type Error = WorkflowError;
+    type LoadedData = WorkflowState;
+
+    async fn load(
+        &self,
+        _context: &EngineContext,
+        app_context: &AppContext,
+        _current_state: &WorkflowState
+    ) -> Result<Self::LoadedData, Self::Error> {
+        app_context.event_store.get_current_state(&self.aggregate_id).await
+    }
+
+    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    async fn emit(
+        &self,
+        _loaded_data: &Self::LoadedData,
+        _context: &EngineContext,
+        _app_context: &AppContext,
+        _current_state: &WorkflowState
+    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
+        Ok(vec![])
+    }
+
+    async fn effect(
+        &self,
+        _previous_state: &WorkflowState,
+        _current_state: &WorkflowState,
+        _context: &EngineContext,
+        app_context: &AppContext
+    ) -> Result<(), Self::Error> {
+        let state = app_context.event_store.get_current_state(&self.aggregate_id).await?;
+        let events = app_context.event_store.get_events(&self.aggregate_id).await?;
+
+        println!("{}", t_params!("storage_replay_aggregate", &[&self.aggregate_id]));
+        println!("{}", t_params!("storage_replay_events_count", &[&events.len().to_string()]));
+        println!("\n{}", t!("storage_replay_state"));
+        println!("{:#?}", state);
+        Ok(())
+    }
+
+    fn name(&self) -> &'static str {
+        "replay-aggregate"
+    }
+
+    fn description(&self) -> &'static str {
+        "Replays events for a specific aggregate ID"
     }
 
     fn is_interactive(&self) -> bool {

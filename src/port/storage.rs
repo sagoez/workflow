@@ -13,6 +13,9 @@ pub trait EventStore: Send + Sync {
 
     /// Get all events for a specific session/aggregate
     async fn get_events(&self, session_id: &str) -> Result<Vec<WorkflowEvent>, WorkflowError>;
+
+    /// List all aggregate IDs
+    async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError>;
 }
 
 /// Port for state restoration from events

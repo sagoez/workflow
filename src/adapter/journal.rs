@@ -5,9 +5,10 @@
 //! - CassandraJournal: For production (TODO)
 //! - PostgreSQLJournal: Alternative production option (TODO)
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use async_trait::async_trait;
+use rocksdb::DB;
 use tokio::sync::RwLock;
 
 use crate::{
@@ -81,18 +82,194 @@ impl Journal for InMemoryJournal {
     }
 }
 
+pub struct RocksDbJournal {
+    db: Arc<DB>,
+    snapshot_threshold: u64
+}
+
+impl RocksDbJournal {
+    pub fn new(path: &Path) -> Result<Self, WorkflowError> {
+        Self::with_snapshot_threshold(path, 100)
+    }
+
+    pub fn with_snapshot_threshold(path: &Path, snapshot_threshold: u64) -> Result<Self, WorkflowError> {
+        let mut opts = rocksdb::Options::default();
+        opts.create_if_missing(true);
+        opts.set_compression_type(rocksdb::DBCompressionType::Snappy);
+
+        let db = DB::open(&opts, path)
+            .map_err(|e| WorkflowError::FileSystem(format!("Failed to open RocksDB journal: {}", e)))?;
+
+        Ok(Self { db: Arc::new(db), snapshot_threshold })
+    }
+
+    async fn create_snapshot(&self, session_id: &str, sequence: u64, events: &[WorkflowEvent]) -> Result<(), WorkflowError> {
+        use crate::{domain::state::WorkflowState, port::event::Event};
+
+        let session_id = session_id.to_string();
+        let db = self.db.clone();
+        let events = events.to_vec();
+
+        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
+            let mut state = WorkflowState::default();
+            for event in events {
+                if let Some(new_state) = event.apply(Some(&state)) {
+                    state = new_state;
+                }
+            }
+
+            let key = format!("snapshot:{}:{}", session_id, sequence);
+            let serialized = serde_json::to_vec(&state)
+                .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize snapshot: {}", e)))?;
+
+            db.put(key.as_bytes(), serialized)
+                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write snapshot: {}", e)))?;
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to create snapshot: {}", e)))??;
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Journal for RocksDbJournal {
+    async fn persist_events(&self, session_id: &str, events: &[WorkflowEvent]) -> Result<(), WorkflowError> {
+        if events.is_empty() {
+            return Ok(());
+        }
+
+        let session_id = session_id.to_string();
+        let db = self.db.clone();
+        let events = events.to_vec();
+
+        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
+            let key = format!("journal:{}", session_id);
+
+            let mut all_events: Vec<WorkflowEvent> = match db.get(key.as_bytes()) {
+                Ok(Some(data)) => serde_json::from_slice(&data).map_err(|e| {
+                    WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                })?,
+                Ok(None) => vec![],
+                Err(e) => return Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+            };
+
+            all_events.extend(events);
+
+            let serialized = serde_json::to_vec(&all_events)
+                .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize journal events: {}", e)))?;
+
+            db.put(key.as_bytes(), serialized)
+                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write journal: {}", e)))?;
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to persist journal events: {}", e)))??;
+
+        Ok(())
+    }
+
+    async fn replay_events(&self, session_id: &str, from_sequence: u64) -> Result<Vec<WorkflowEvent>, WorkflowError> {
+        let session_id = session_id.to_string();
+        let db = self.db.clone();
+
+        tokio::task::spawn_blocking(move || -> Result<Vec<WorkflowEvent>, WorkflowError> {
+            let key = format!("journal:{}", session_id);
+
+            match db.get(key.as_bytes()) {
+                Ok(Some(data)) => {
+                    let events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
+                        WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                    })?;
+                    Ok(events.into_iter().skip(from_sequence as usize).collect())
+                }
+                Ok(None) => Ok(vec![]),
+                Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+            }
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to replay journal events: {}", e)))?
+    }
+
+    async fn highest_sequence_nr(&self, session_id: &str) -> Result<u64, WorkflowError> {
+        let session_id = session_id.to_string();
+        let db = self.db.clone();
+
+        tokio::task::spawn_blocking(move || -> Result<u64, WorkflowError> {
+            let key = format!("journal:{}", session_id);
+
+            match db.get(key.as_bytes()) {
+                Ok(Some(data)) => {
+                    let events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
+                        WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                    })?;
+                    Ok(events.len() as u64)
+                }
+                Ok(None) => Ok(0),
+                Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+            }
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to get sequence number: {}", e)))?
+    }
+
+    async fn delete_events(&self, session_id: &str, to_sequence: u64) -> Result<(), WorkflowError> {
+        let session_id = session_id.to_string();
+        let db = self.db.clone();
+
+        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
+            let key = format!("journal:{}", session_id);
+
+            match db.get(key.as_bytes()) {
+                Ok(Some(data)) => {
+                    let mut events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
+                        WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                    })?;
+
+                    events.drain(0..(to_sequence as usize).min(events.len()));
+
+                    if events.is_empty() {
+                        db.delete(key.as_bytes())
+                            .map_err(|e| WorkflowError::FileSystem(format!("Failed to delete journal: {}", e)))?;
+                    } else {
+                        let serialized = serde_json::to_vec(&events).map_err(|e| {
+                            WorkflowError::Serialization(format!("Failed to serialize journal events: {}", e))
+                        })?;
+                        db.put(key.as_bytes(), serialized)
+                            .map_err(|e| WorkflowError::FileSystem(format!("Failed to write journal: {}", e)))?;
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => return Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+            }
+
+            Ok(())
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to delete journal events: {}", e)))?
+    }
+}
+
 /// Journal Factory - Configuration-driven journal creation
 pub enum JournalType {
-    InMemory // TODO: Add Cassandra, PostgreSQL, etc.
+    InMemory,
+    RocksDb
 }
 
 pub struct JournalFactory;
 
 impl JournalFactory {
-    /// Create journal based on configuration
-    pub fn create(journal_type: JournalType) -> Arc<dyn Journal> {
+    pub fn create(journal_type: JournalType, db_path: Option<&Path>) -> Result<Arc<dyn Journal>, WorkflowError> {
         match journal_type {
-            JournalType::InMemory => Arc::new(InMemoryJournal::new())
+            JournalType::InMemory => Ok(Arc::new(InMemoryJournal::new())),
+            JournalType::RocksDb => {
+                let path =
+                    db_path.ok_or(WorkflowError::Generic("RocksDB path required for RocksDb journal".to_string()))?;
+                Ok(Arc::new(RocksDbJournal::new(path)?))
+            }
         }
     }
 }

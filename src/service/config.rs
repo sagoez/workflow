@@ -15,6 +15,8 @@ pub struct AppConfig {
     pub i18n_dir:      PathBuf,
     /// Database file path (for RocksDB)
     pub database_path: PathBuf,
+    /// Journal path (for actor persistence)
+    pub journal_path:  PathBuf,
     /// Storage backend type
     pub storage_type:  EventStoreType
 }
@@ -43,8 +45,9 @@ impl AppConfig {
         let workflows_dir = config_dir.join("workflows");
         let i18n_dir = config_dir.join("i18n");
         let database_path = config_dir.join("rocksdb");
+        let journal_path = config_dir.join("journal");
 
-        Ok(Self { config_dir, workflows_dir, i18n_dir, database_path, storage_type })
+        Ok(Self { config_dir, workflows_dir, i18n_dir, database_path, journal_path, storage_type })
     }
 
     /// Create configuration directories if they don't exist
@@ -87,8 +90,7 @@ impl AppConfig {
                 .map_err(|e| WorkflowError::FileSystem(format!("Failed to read storage config: {}", e)))?;
             EventStoreType::from_str(content.trim()).map_err(|e| WorkflowError::Validation(e))
         } else {
-            // Default to RocksDB if no config file exists
-            Ok(EventStoreType::RocksDb)
+            Ok(EventStoreType::InMemory)
         }
     }
 
