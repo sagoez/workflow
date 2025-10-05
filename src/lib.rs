@@ -24,9 +24,25 @@ pub struct AppContext {
 }
 
 impl AppContext {
-    /// Creates a new app context
+    /// Creates a new app context with configuration from file (or defaults)
     pub fn init() -> Result<Self, WorkflowError> {
-        let config = AppConfig::init()?;
+        // First create a temporary config to read the storage setting
+        let temp_config = AppConfig::init()?;
+        let storage_type = temp_config.get_current_storage()?;
+        
+        // Now create the real config with the correct storage type
+        let config = AppConfig::with_storage_type(storage_type)?;
+        config.ensure_dirs_exist()?;
+        let text_manager = TextManager::init(Some(config.config_dir.clone()));
+        let git_client = Arc::new(Git2Client::new()) as Arc<dyn GitClient>;
+
+        Ok(Self { config, text_manager: text_manager.clone(), git_client })
+    }
+
+    /// Creates a new app context with specified storage type
+    pub fn with_storage_type(storage_type: crate::adapter::storage::EventStoreType) -> Result<Self, WorkflowError> {
+        let config = AppConfig::with_storage_type(storage_type)?;
+        config.ensure_dirs_exist()?;
         let text_manager = TextManager::init(Some(config.config_dir.clone()));
         let git_client = Arc::new(Git2Client::new()) as Arc<dyn GitClient>;
 

@@ -23,8 +23,7 @@ use crate::{
     },
     adapter::{
         engine::EngineFactory,
-        journal::{JournalFactory, JournalType},
-        storage::EventStoreType
+        journal::{JournalFactory, JournalType}
     },
     domain::{command::WorkflowCommand, constant::workflow_manager, error::WorkflowError, workflow::WorkflowContext},
     port::command::Command,
@@ -200,7 +199,7 @@ impl WorkflowManager {
         session_id: &str,
         app_context: Arc<AppContext>
     ) -> Result<ActorRef<CommandProcessorMessage>, SpawnErr> {
-        let engine = EngineFactory::init(EventStoreType::InMemory, (*app_context).clone());
+        let engine = EngineFactory::init(app_context.config.storage_type.clone(), (*app_context).clone());
         let journal = JournalFactory::create(JournalType::InMemory);
 
         let processor_name = format!("command_processor_{}", session_id);

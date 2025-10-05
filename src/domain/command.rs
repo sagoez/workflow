@@ -36,6 +36,11 @@ pub enum WorkflowCliCommand {
         #[command(subcommand)]
         command: LangCommands
     },
+    /// Storage backend management commands
+    Storage {
+        #[command(subcommand)]
+        command: StorageCommands
+    },
     /// List available workflows
     List,
     /// Select a workflow
@@ -57,6 +62,18 @@ pub enum LangCommands {
     Current,
     /// List available languages
     List
+}
+
+/// Storage management subcommands
+#[derive(Subcommand, Debug)]
+pub enum StorageCommands {
+    /// Set the storage backend
+    Set {
+        /// Storage backend
+        backend: crate::adapter::storage::EventStoreType
+    },
+    /// Show current storage backend
+    Current
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -116,6 +133,14 @@ pub struct GetCurrentLanguageCommand;
 pub struct ListLanguagesCommand;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SetStorageCommand {
+    pub backend: crate::adapter::storage::EventStoreType
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct GetCurrentStorageCommand;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WorkflowCommand {
     // Workflow management
     DiscoverWorkflows(DiscoverWorkflowsCommand),
@@ -132,7 +157,11 @@ pub enum WorkflowCommand {
     // Language management
     SetLanguage(SetLanguageCommand),
     GetCurrentLanguage(GetCurrentLanguageCommand),
-    ListLanguages(ListLanguagesCommand)
+    ListLanguages(ListLanguagesCommand),
+
+    // Storage management
+    SetStorage(SetStorageCommand),
+    GetCurrentStorage(GetCurrentStorageCommand)
 }
 
 impl From<SyncWorkflowsCommand> for WorkflowCommand {
@@ -156,6 +185,18 @@ impl From<GetCurrentLanguageCommand> for WorkflowCommand {
 impl From<ListLanguagesCommand> for WorkflowCommand {
     fn from(val: ListLanguagesCommand) -> Self {
         WorkflowCommand::ListLanguages(val)
+    }
+}
+
+impl From<SetStorageCommand> for WorkflowCommand {
+    fn from(val: SetStorageCommand) -> Self {
+        WorkflowCommand::SetStorage(val)
+    }
+}
+
+impl From<GetCurrentStorageCommand> for WorkflowCommand {
+    fn from(val: GetCurrentStorageCommand) -> Self {
+        WorkflowCommand::GetCurrentStorage(val)
     }
 }
 

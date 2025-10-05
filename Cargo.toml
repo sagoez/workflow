@@ -19,6 +19,7 @@ fuzzy-matcher = "0.3"
 git2 = "0.20.2"
 indicatif = "0.18.0"
 inquire = "0.9.1"
+rocksdb = { version = "0.24.0", default-features = false, features = ["snappy"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.143"
 serde_yaml = "0.9"

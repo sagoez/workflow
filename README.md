@@ -14,7 +14,7 @@ At its core, this application does something absolutely revolutionary: it reads 
 - 📚 **Event Journaling**: Every parameter substitution is persisted as an event (because what if you need to replay that `kubectl get pods -n {{namespace}}` resolution?)
 - 🌍 **Multi-language Support**: Parameter prompt errors in English AND Spanish (porque los errores de parámetros son internacionales)
 - 🔄 **Command Chaining**: Workflows can trigger other workflows (because parameterized recursion is fun)
-- 📦 **Pluggable Storage**: Swap between in-memory and... well, just in-memory for now (but the abstraction is there!)
+- 📦 **Pluggable Storage**: Swap between in-memory and RocksDB for persistent event sourcing (because your workflow selections are too important to lose)
 
 ## Usage
 
@@ -57,7 +57,57 @@ Don't worry! There are still plenty of opportunities to add more unnecessary com
 
 ## Installation
 
-If you don't know how to install a rust program, you should probably go check yourself.
+### Prerequisites
+
+Before you can compile this masterpiece of overengineering, you'll need:
+
+1. **Rust** (obviously) - Install from [rustup.rs](https://rustup.rs/)
+2. **LLVM/Clang** - Required for RocksDB native bindings
+
+#### macOS
+
+```bash
+# Install LLVM via Homebrew
+brew install llvm
+
+# Set environment variables for the current shell
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+
+# Add these to your shell profile (~/.zshrc or ~/.bash_profile) for persistence
+```
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+# Install clang and LLVM
+sudo apt-get update
+sudo apt-get install clang llvm-dev libclang-dev
+```
+
+#### Linux (Fedora/RHEL)
+
+```bash
+# Install clang and LLVM
+sudo dnf install clang llvm-devel clang-devel
+```
+
+### Building
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd workflow
+
+# Build and install
+cargo install --path .
+
+# Or just build
+cargo build --release
+```
+
+If you still don't know how to install a Rust program after reading this, you should probably go check yourself.
 
 ## Configuration
 

@@ -53,10 +53,10 @@ use workflow::{
     actor::{Guardian, GuardianMessage},
     domain::{
         command::{
-            CompleteWorkflowCommand, DiscoverWorkflowsCommand, GetCurrentLanguageCommand,
+            CompleteWorkflowCommand, DiscoverWorkflowsCommand, GetCurrentLanguageCommand, GetCurrentStorageCommand,
             InteractivelySelectWorkflowCommand, LangCommands, ListLanguagesCommand, ListWorkflowsCommand,
-            ResolveArgumentsCommand, SetLanguageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCli,
-            WorkflowCliCommand, WorkflowCommand
+            ResolveArgumentsCommand, SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, StorageCommands,
+            SyncWorkflowsCommand, WorkflowCli, WorkflowCliCommand, WorkflowCommand
         },
         error::WorkflowError,
         workflow::WorkflowContext
@@ -92,6 +92,14 @@ async fn main() -> Result<(), WorkflowError> {
             LangCommands::List => {
                 submit_command_to_actor_system(&guardian_ref, DiscoverWorkflowsCommand.into(), context.clone()).await?;
                 submit_command_to_actor_system(&guardian_ref, ListLanguagesCommand.into(), context).await
+            }
+        },
+        Some(WorkflowCliCommand::Storage { command }) => match command {
+            StorageCommands::Set { backend } => {
+                submit_command_to_actor_system(&guardian_ref, SetStorageCommand { backend }.into(), context).await
+            }
+            StorageCommands::Current => {
+                submit_command_to_actor_system(&guardian_ref, GetCurrentStorageCommand.into(), context).await
             }
         },
         Some(WorkflowCliCommand::List) => {

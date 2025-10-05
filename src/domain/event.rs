@@ -1,6 +1,9 @@
 //! Event metadata containing common information
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::HashMap,
+    fmt::{self, Debug, Display}
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -137,6 +140,25 @@ pub enum WorkflowEvent {
     LanguageSet(LanguageSetEvent),
     CurrentLanguageRetrieved(CurrentLanguageRetrievedEvent),
     AvailableLanguagesListed(AvailableLanguagesListedEvent)
+}
+
+impl Display for WorkflowEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let event_type = match self {
+            WorkflowEvent::WorkflowDiscovered(_) => "WorkflowDiscovered",
+            WorkflowEvent::WorkflowSelected(_) => "WorkflowSelected",
+            WorkflowEvent::WorkflowStarted(_) => "WorkflowStarted",
+            WorkflowEvent::WorkflowArgumentsResolved(_) => "WorkflowArgumentsResolved",
+            WorkflowEvent::WorkflowCompleted(_) => "WorkflowCompleted",
+            WorkflowEvent::AvailableWorkflowsListed(_) => "AvailableWorkflowsListed",
+            WorkflowEvent::SyncRequested(_) => "SyncRequested",
+            WorkflowEvent::WorkflowsSynced(_) => "WorkflowsSynced",
+            WorkflowEvent::LanguageSet(_) => "LanguageSet",
+            WorkflowEvent::CurrentLanguageRetrieved(_) => "CurrentLanguageRetrieved",
+            WorkflowEvent::AvailableLanguagesListed(_) => "AvailableLanguagesListed"
+        };
+        write!(f, "{}", event_type)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
