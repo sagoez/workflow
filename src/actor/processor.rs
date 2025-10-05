@@ -16,7 +16,7 @@ use crate::{
         command::WorkflowCommand, constant::command_processor, engine::EngineContext, error::WorkflowError,
         state::WorkflowState, workflow::WorkflowContext
     },
-    port::{command::Command, engine::Engine, journal::Journal},
+    port::{command::Command, engine::Engine, event::Event, journal::Journal},
     t_params
 };
 
@@ -129,8 +129,8 @@ impl CommandProcessor {
         // 1. Load command data
         let loaded_data = command.load(context, &state.app_context, &state.current_state).await?;
 
-        // 2. Engine processes command (pure business logic)
-        let events = state.engine.process_command(command.clone(), context, &state.current_state).await?;
+        // 2. Engine processes command (validate + emit events)
+        let events = state.engine.process_command(&loaded_data, command.clone(), context, &state.current_state).await?;
 
         // 3. Persist events to journal (session_id as persistence_id)
         if !events.is_empty() {
@@ -157,9 +157,16 @@ impl CommandProcessor {
             return Ok(WorkflowState::default());
         }
 
-        // TODO: Apply events to rebuild state
-        // For now, just return default state
-        Ok(WorkflowState::default())
+        // Apply events to rebuild state
+        let mut state = WorkflowState::default();
+        for event in events {
+            let boxed_event = Box::new(event) as Box<dyn Event>;
+            if let Some(new_state) = boxed_event.apply(Some(&state)) {
+                state = new_state;
+            }
+        }
+
+        Ok(state)
     }
 
     /// Handle session completion

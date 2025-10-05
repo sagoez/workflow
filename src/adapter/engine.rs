@@ -40,21 +40,17 @@ impl EngineV1 {
 impl Engine for EngineV1 {
     async fn process_command(
         &self,
+        loaded_data: &Box<dyn std::any::Any + Send + Sync>,
         command: WorkflowCommand,
         context: &EngineContext,
         current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, WorkflowError> {
-        let loaded_data = command
-            .load(context, &self.app_context, current_state)
-            .await
-            .map_err(|e| WorkflowError::Execution(t_params!("load_phase_failed", &[&e.to_string()])))?;
-
         command
-            .validate(&loaded_data)
+            .validate(loaded_data)
             .map_err(|e| WorkflowError::Validation(t_params!("validation_phase_failed", &[&e.to_string()])))?;
 
         let events = command
-            .emit(&loaded_data, context, &self.app_context, current_state)
+            .emit(loaded_data, context, &self.app_context, current_state)
             .await
             .map_err(|e| WorkflowError::Event(t_params!("emit_phase_failed", &[&e.to_string()])))?;
 

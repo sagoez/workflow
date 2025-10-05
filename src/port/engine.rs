@@ -20,6 +20,7 @@ pub trait Engine: Send + Sync + 'static {
     /// Pure function: takes current state, returns events (no persistence)
     async fn process_command(
         &self,
+        loaded_data: &Box<dyn std::any::Any + Send + Sync>,
         command: WorkflowCommand,
         context: &EngineContext,
         current_state: &WorkflowState
