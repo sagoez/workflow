@@ -1,9 +1,10 @@
-use std::{collections::HashMap, fs, process::Command as StdCommand};
+use std::{collections::HashMap, fs};
 
 use async_trait::async_trait;
 use chrono::Utc;
 use clipboard::ClipboardProvider;
 use inquire::{Select, Text};
+use tokio::process::Command as TokioCommand;
 use uuid::Uuid;
 
 use crate::{
@@ -170,27 +171,34 @@ impl Command for DiscoverWorkflowsCommand {
             return Ok(DiscoverWorkflowsData { workflows: vec![] });
         }
 
-        let entries = fs::read_dir(&workflows_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-        let mut workflows = Vec::new();
+        // Run blocking I/O operations in a separate thread pool to avoid blocking the async runtime
+        let workflows = tokio::task::spawn_blocking(move || -> Result<Vec<Workflow>, WorkflowError> {
+            let entries = fs::read_dir(&workflows_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+            let mut workflows = Vec::new();
 
-        for entry in entries {
-            let entry = entry.map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-            let path = entry.path();
+            for entry in entries {
+                let entry = entry.map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+                let path = entry.path();
 
-            if path.is_file()
-                && let Some(extension) = path.extension()
-                && (extension == "yaml" || extension == "yml")
-            {
-                let content = fs::read_to_string(&path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+                if path.is_file()
+                    && let Some(extension) = path.extension()
+                    && (extension == "yaml" || extension == "yml")
+                {
+                    let content = fs::read_to_string(&path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
 
-                let workflow: Workflow =
-                    serde_yaml::from_str(&content).map_err(|e| WorkflowError::Serialization(e.to_string()))?;
+                    let workflow: Workflow =
+                        serde_yaml::from_str(&content).map_err(|e| WorkflowError::Serialization(e.to_string()))?;
 
-                workflows.push(workflow);
+                    workflows.push(workflow);
+                }
             }
-        }
 
-        workflows.sort_by(|a, b| a.name.cmp(&b.name));
+            workflows.sort_by(|a, b| a.name.cmp(&b.name));
+            Ok(workflows)
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to discover workflows: {}", e)))??;
+
         Ok(DiscoverWorkflowsData { workflows })
     }
 
@@ -570,7 +578,8 @@ impl Command for ResolveArgumentsCommand {
                     println!("  {} = {}", key, value);
                 }
 
-                let mut tera = tera::Tera::new("templates/*").unwrap_or_else(|_| tera::Tera::default());
+                // Use default Tera instance since we only need render_str (no file templates needed)
+                let mut tera = tera::Tera::default();
                 let mut context = tera::Context::new();
 
                 for (key, value) in &state.resolved_arguments {
@@ -760,10 +769,11 @@ async fn resolve_enum_argument(
 
     println!("Executing: {}", resolved_command);
 
-    let output = StdCommand::new("sh")
+    let output = TokioCommand::new("sh")
         .arg("-c")
         .arg(&resolved_command)
         .output()
+        .await
         .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_execute_command", &[&e.to_string()])))?;
 
     if !output.status.success() {
