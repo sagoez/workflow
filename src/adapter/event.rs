@@ -3,9 +3,9 @@ use chrono::{DateTime, Utc};
 use crate::{
     domain::{
         event::{
-            AggregateReplayedEvent, AggregatesListedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent,
-            SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent,
-            WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            AggregateReplayedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent, SyncRequestedEvent,
+            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
+            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
         state::{
             LanguageSetState, SyncRequestedState, WorkflowArgumentsResolvedState, WorkflowCompletedState,
@@ -425,7 +425,6 @@ impl_event!(WorkflowEvent {
     SyncRequested(event),
     WorkflowsSynced(event),
     LanguageSet(event),
-    AggregatesListed(event),
     AggregateReplayed(event)
 });
 
@@ -457,36 +456,6 @@ impl Event for SyncRequestedEvent {
 
     fn state_type(&self) -> &'static str {
         "SyncRequestedState"
-    }
-
-    fn clone_event(&self) -> Box<dyn Event> {
-        Box::new(self.clone())
-    }
-}
-
-impl Event for AggregatesListedEvent {
-    fn apply(&self, current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
-        current_state.cloned()
-    }
-
-    fn event_type(&self) -> &'static str {
-        "AggregatesListed"
-    }
-
-    fn timestamp(&self) -> DateTime<Utc> {
-        self.timestamp
-    }
-
-    fn event_id(&self) -> &str {
-        &self.event_id
-    }
-
-    fn to_json(&self) -> serde_json::Result<String> {
-        serde_json::to_string(self)
-    }
-
-    fn state_type(&self) -> &'static str {
-        "Default"
     }
 
     fn clone_event(&self) -> Box<dyn Event> {

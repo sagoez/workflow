@@ -25,9 +25,9 @@ use crate::{
         engine::EngineContext,
         error::WorkflowError,
         event::{
-            AggregateReplayedEvent, AggregatesListedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent,
-            SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent,
-            WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            AggregateReplayedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent, SyncRequestedEvent,
+            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
+            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
         state::{StateDisplay, WorkflowState},
         workflow::{ArgumentType, Workflow, WorkflowArgument}
@@ -1362,19 +1362,12 @@ impl Command for ListAggregatesCommand {
 
     async fn emit(
         &self,
-        loaded_data: &Self::LoadedData,
+        _loaded_data: &Self::LoadedData,
         _context: &EngineContext,
         _app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let aggregate_ids = loaded_data.clone();
-        let event = AggregatesListedEvent {
-            event_id: Uuid::new_v4().to_string(),
-            timestamp: Utc::now(),
-            aggregate_count: aggregate_ids.len(),
-            aggregate_ids
-        };
-        Ok(vec![WorkflowEvent::AggregatesListed(event)])
+        Ok(vec![])
     }
 
     async fn effect(
