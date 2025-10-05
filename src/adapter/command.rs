@@ -1543,11 +1543,13 @@ impl Command for ReplayAggregateCommand {
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        let state = &_current_state;
+        let state = app_context.event_store.get_current_state(&self.aggregate_id).await?;
+        let events = app_context.event_store.get_events(&self.aggregate_id).await?;
 
         println!("{}", t_params!("storage_replay_aggregate", &[&self.aggregate_id]));
+        println!("\n{}", t_params!("storage_replay_events_count", &[&events.len().to_string()]));
         println!("\n{}", t!("storage_replay_state"));
         println!("{:#?}", state);
         Ok(())
