@@ -8,10 +8,7 @@ pub mod service;
 use std::sync::Arc;
 
 use crate::{
-    adapter::git::Git2Client,
-    domain::error::WorkflowError,
-    i18n::display::TextManager,
-    port::git::GitClient,
+    adapter::git::Git2Client, domain::error::WorkflowError, i18n::display::TextManager, port::git::GitClient,
     service::config::AppConfig
 };
 
@@ -44,10 +41,8 @@ impl AppContext {
         config.ensure_dirs_exist()?;
         let text_manager = TextManager::init(Some(config.config_dir.clone()));
         let git_client = Arc::new(Git2Client::new()) as Arc<dyn GitClient>;
-        let event_store = crate::adapter::storage::EventStoreFactory::create(
-            config.storage_type,
-            Some(&config.database_path)
-        )?;
+        let event_store =
+            crate::adapter::storage::EventStoreFactory::create(config.storage_type, Some(&config.database_path))?;
 
         Ok(Self { config, text_manager: text_manager.clone(), git_client, event_store })
     }

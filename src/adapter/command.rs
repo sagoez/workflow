@@ -21,9 +21,10 @@ use crate::{
         engine::EngineContext,
         error::WorkflowError,
         event::{
-            AvailableLanguagesListedEvent, AvailableWorkflowsListedEvent, CurrentLanguageRetrievedEvent,
-            LanguageSetEvent, SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent,
-            WorkflowDiscoveredEvent, WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            AggregateReplayedEvent, AggregatesListedEvent, AvailableLanguagesListedEvent,
+            AvailableWorkflowsListedEvent, CurrentLanguageRetrievedEvent, LanguageSetEvent, SyncRequestedEvent,
+            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
+            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
         state::WorkflowState,
         workflow::{ArgumentType, Workflow, WorkflowArgument}
@@ -1368,12 +1369,19 @@ impl Command for ListAggregatesCommand {
 
     async fn emit(
         &self,
-        _loaded_data: &Self::LoadedData,
+        loaded_data: &Self::LoadedData,
         _context: &EngineContext,
         _app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        Ok(vec![])
+        let aggregate_ids = loaded_data.clone();
+        let event = AggregatesListedEvent {
+            event_id: Uuid::new_v4().to_string(),
+            timestamp: Utc::now(),
+            aggregate_count: aggregate_ids.len(),
+            aggregate_ids
+        };
+        Ok(vec![WorkflowEvent::AggregatesListed(event)])
     }
 
     async fn effect(
@@ -1471,9 +1479,8 @@ impl Command for PurgeStorageCommand {
         })
         .await
         .map_err(|e| WorkflowError::Generic(format!("Failed to purge storage: {}", e)))??;
-
+        
         println!("{}", t!("storage_purge_success"));
-        println!("{}", t!("storage_purge_restart"));
         Ok(())
     }
 
@@ -1497,7 +1504,7 @@ impl Command for PurgeStorageCommand {
 #[async_trait]
 impl Command for ReplayAggregateCommand {
     type Error = WorkflowError;
-    type LoadedData = WorkflowState;
+    type LoadedData = (WorkflowState, usize);
 
     async fn load(
         &self,
@@ -1505,7 +1512,9 @@ impl Command for ReplayAggregateCommand {
         app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Self::LoadedData, Self::Error> {
-        app_context.event_store.get_current_state(&self.aggregate_id).await
+        let state = app_context.event_store.get_current_state(&self.aggregate_id).await?;
+        let events = app_context.event_store.get_events(&self.aggregate_id).await?;
+        Ok((state, events.len()))
     }
 
     fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
@@ -1514,12 +1523,19 @@ impl Command for ReplayAggregateCommand {
 
     async fn emit(
         &self,
-        _loaded_data: &Self::LoadedData,
+        loaded_data: &Self::LoadedData,
         _context: &EngineContext,
         _app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        Ok(vec![])
+        let (_state, events_count) = loaded_data;
+        let event = AggregateReplayedEvent {
+            event_id:     Uuid::new_v4().to_string(),
+            timestamp:    Utc::now(),
+            aggregate_id: self.aggregate_id.clone(),
+            events_count: *events_count
+        };
+        Ok(vec![WorkflowEvent::AggregateReplayed(event)])
     }
 
     async fn effect(
@@ -1527,13 +1543,11 @@ impl Command for ReplayAggregateCommand {
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
-        app_context: &AppContext
+        _app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        let state = app_context.event_store.get_current_state(&self.aggregate_id).await?;
-        let events = app_context.event_store.get_events(&self.aggregate_id).await?;
+        let state = &_current_state;
 
         println!("{}", t_params!("storage_replay_aggregate", &[&self.aggregate_id]));
-        println!("{}", t_params!("storage_replay_events_count", &[&events.len().to_string()]));
         println!("\n{}", t!("storage_replay_state"));
         println!("{:#?}", state);
         Ok(())

@@ -79,7 +79,6 @@
     "storage_replay_state": "📸 Current State:",
     "storage_purge_only_rocksdb": "⚠️  Purge is only available for RocksDB storage",
     "storage_purge_success": "✅ Storage purged successfully",
-    "storage_purge_restart": "ℹ️  Please restart the application to reinitialize storage",
     "error_failed_to_apply_event": "Failed to apply event to state",
     "error_rocksdb_path_required": "RocksDB path is required for RocksDb storage type",
     "error_rocksdb_not_initialized": "RocksDB instance not initialized",

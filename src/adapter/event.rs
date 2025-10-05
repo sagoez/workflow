@@ -3,9 +3,10 @@ use chrono::{DateTime, Utc};
 use crate::{
     domain::{
         event::{
-            AvailableLanguagesListedEvent, AvailableWorkflowsListedEvent, CurrentLanguageRetrievedEvent,
-            LanguageSetEvent, SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent,
-            WorkflowDiscoveredEvent, WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            AggregateReplayedEvent, AggregatesListedEvent, AvailableLanguagesListedEvent,
+            AvailableWorkflowsListedEvent, CurrentLanguageRetrievedEvent, LanguageSetEvent, SyncRequestedEvent,
+            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
+            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
         state::{
             AvailableLanguagesListedState, CurrentLanguageRetrievedState, LanguageSetState, SyncRequestedState,
@@ -498,7 +499,9 @@ impl_event!(WorkflowEvent {
     WorkflowsSynced(event),
     LanguageSet(event),
     CurrentLanguageRetrieved(event),
-    AvailableLanguagesListed(event)
+    AvailableLanguagesListed(event),
+    AggregatesListed(event),
+    AggregateReplayed(event)
 });
 
 // Individual Event trait implementations
@@ -529,6 +532,66 @@ impl Event for SyncRequestedEvent {
 
     fn state_type(&self) -> &'static str {
         "SyncRequestedState"
+    }
+
+    fn clone_event(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+}
+
+impl Event for AggregatesListedEvent {
+    fn apply(&self, current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
+        current_state.cloned()
+    }
+
+    fn event_type(&self) -> &'static str {
+        "AggregatesListed"
+    }
+
+    fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    fn event_id(&self) -> &str {
+        &self.event_id
+    }
+
+    fn to_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string(self)
+    }
+
+    fn state_type(&self) -> &'static str {
+        "Default"
+    }
+
+    fn clone_event(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+}
+
+impl Event for AggregateReplayedEvent {
+    fn apply(&self, current_state: Option<&WorkflowState>) -> Option<WorkflowState> {
+        current_state.cloned()
+    }
+
+    fn event_type(&self) -> &'static str {
+        "AggregateReplayed"
+    }
+
+    fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    fn event_id(&self) -> &str {
+        &self.event_id
+    }
+
+    fn to_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string(self)
+    }
+
+    fn state_type(&self) -> &'static str {
+        "Default"
     }
 
     fn clone_event(&self) -> Box<dyn Event> {

@@ -205,8 +205,8 @@ impl WorkflowManager {
             EventStoreType::InMemory => JournalType::InMemory,
             EventStoreType::RocksDb => JournalType::RocksDb
         };
-        let journal = JournalFactory::create(journal_type)
-            .map_err(|e| SpawnErr::StartupFailed(e.to_string().into()))?;
+        let journal =
+            JournalFactory::create(journal_type).map_err(|e| SpawnErr::StartupFailed(e.to_string().into()))?;
 
         let processor_name = format!("command_processor_{}", session_id);
         let (processor_ref, _handle) = Actor::spawn(

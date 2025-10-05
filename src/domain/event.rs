@@ -139,7 +139,11 @@ pub enum WorkflowEvent {
     /// Language Management Events
     LanguageSet(LanguageSetEvent),
     CurrentLanguageRetrieved(CurrentLanguageRetrievedEvent),
-    AvailableLanguagesListed(AvailableLanguagesListedEvent)
+    AvailableLanguagesListed(AvailableLanguagesListedEvent),
+
+    /// Storage Management Events
+    AggregatesListed(AggregatesListedEvent),
+    AggregateReplayed(AggregateReplayedEvent)
 }
 
 impl Display for WorkflowEvent {
@@ -155,7 +159,9 @@ impl Display for WorkflowEvent {
             WorkflowEvent::WorkflowsSynced(_) => "WorkflowsSynced",
             WorkflowEvent::LanguageSet(_) => "LanguageSet",
             WorkflowEvent::CurrentLanguageRetrieved(_) => "CurrentLanguageRetrieved",
-            WorkflowEvent::AvailableLanguagesListed(_) => "AvailableLanguagesListed"
+            WorkflowEvent::AvailableLanguagesListed(_) => "AvailableLanguagesListed",
+            WorkflowEvent::AggregatesListed(_) => "AggregatesListed",
+            WorkflowEvent::AggregateReplayed(_) => "AggregateReplayed"
         };
         write!(f, "{}", event_type)
     }
@@ -216,4 +222,26 @@ pub struct AvailableLanguagesListedEvent {
     pub event_id:  String,
     pub timestamp: DateTime<Utc>,
     pub languages: Vec<String>
+}
+
+// **********************
+// Storage Management Events
+// **********************
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Aggregates listed event - emitted when aggregate IDs are queried
+pub struct AggregatesListedEvent {
+    pub event_id:       String,
+    pub timestamp:      DateTime<Utc>,
+    pub aggregate_ids:  Vec<String>,
+    pub aggregate_count: usize
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Aggregate replayed event - emitted when an aggregate's events are replayed
+pub struct AggregateReplayedEvent {
+    pub event_id:      String,
+    pub timestamp:     DateTime<Utc>,
+    pub aggregate_id:  String,
+    pub events_count:  usize
 }

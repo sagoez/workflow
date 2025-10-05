@@ -235,6 +235,12 @@ impl From<ReplayAggregateCommand> for WorkflowCommand {
     }
 }
 
+impl From<PurgeStorageCommand> for WorkflowCommand {
+    fn from(val: PurgeStorageCommand) -> Self {
+        WorkflowCommand::PurgeStorage(val)
+    }
+}
+
 impl From<DiscoverWorkflowsCommand> for WorkflowCommand {
     fn from(val: DiscoverWorkflowsCommand) -> Self {
         WorkflowCommand::DiscoverWorkflows(val)
