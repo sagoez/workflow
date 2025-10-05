@@ -45,7 +45,7 @@ impl AppConfig {
         let workflows_dir = config_dir.join("workflows");
         let i18n_dir = config_dir.join("i18n");
         let database_path = config_dir.join("rocksdb");
-        let journal_path = config_dir.join("journal");
+        let journal_path = database_path.clone();
 
         Ok(Self { config_dir, workflows_dir, i18n_dir, database_path, journal_path, storage_type })
     }

@@ -114,7 +114,6 @@ impl EventStore for InMemoryEventStore {
 
         drop(event_store);
 
-        // Invalidate cached state so it gets rebuilt on next access
         let mut cache = self.cache.write().await;
         cache.remove(&aggregate_id);
 
@@ -133,6 +132,7 @@ impl EventStore for InMemoryEventStore {
         self.rebuild_state(aggregate_id).await
     }
 
+    /// Get all events for a specific session/aggregate
     async fn get_events(&self, session_id: &str) -> Result<Vec<WorkflowEvent>, WorkflowError> {
         let event_store = self.events.read().await;
 
@@ -323,23 +323,25 @@ pub struct RocksDbEventStore {
 // Use RocksDbEventStore::new(path) instead
 
 impl RocksDbEventStore {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, WorkflowError> {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.set_compression_type(rocksdb::DBCompressionType::Snappy);
-
-        let db =
-            DB::open(&opts, path).map_err(|e| WorkflowError::FileSystem(format!("Failed to open RocksDB: {}", e)))?;
-
-        Ok(Self { db: Arc::new(db), cache: Arc::new(RwLock::new(HashMap::new())) })
+    /// Creates a new RocksDB event store from an existing DB instance
+    ///
+    /// Uses a shared RocksDB instance that is also used by the Journal.
+    /// This avoids RocksDB's single-process locking limitation.
+    pub fn from_db(db: Arc<DB>) -> Self {
+        Self { db, cache: Arc::new(RwLock::new(HashMap::new())) }
     }
 
+    /// Rebuilds workflow state by replaying all events for an aggregate
+    ///
+    /// Reads events from `journal:{aggregate_id}` key (written by Journal),
+    /// applies them sequentially to rebuild the current state, and caches
+    /// the result for future queries.
     async fn rebuild_state(&self, aggregate_id: &str) -> Result<WorkflowState, WorkflowError> {
         let events = self.get_events_internal(aggregate_id).await?;
         let mut current_state = WorkflowState::default();
 
-        for aggregate_event in events {
-            if let Some(new_state) = aggregate_event.data.apply(Some(&current_state)) {
+        for event in events {
+            if let Some(new_state) = event.apply(Some(&current_state)) {
                 current_state = new_state;
             } else {
                 return Err(WorkflowError::Validation(t!("error_failed_to_apply_event")));
@@ -352,18 +354,18 @@ impl RocksDbEventStore {
         Ok(current_state)
     }
 
-    async fn get_events_internal(&self, session_id: &str) -> Result<Vec<AggregateEvent>, WorkflowError> {
+    async fn get_events_internal(&self, session_id: &str) -> Result<Vec<WorkflowEvent>, WorkflowError> {
         let db = self.db.clone();
         let session_id = session_id.to_string();
 
-        tokio::task::spawn_blocking(move || -> Result<Vec<AggregateEvent>, WorkflowError> {
+        tokio::task::spawn_blocking(move || -> Result<Vec<WorkflowEvent>, WorkflowError> {
             let key = format!("journal:{}", session_id);
 
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
-                    let events: Vec<AggregateEvent> = serde_json::from_slice(&data)
+                    let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data)
                         .map_err(|e| WorkflowError::Serialization(format!("Failed to deserialize events: {}", e)))?;
-                    Ok(events)
+                    Ok(aggregate_events.into_iter().map(|ae| ae.data).collect())
                 }
                 Ok(None) => Ok(vec![]),
                 Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read from RocksDB: {}", e)))
@@ -393,9 +395,7 @@ impl EventStore for RocksDbEventStore {
     }
 
     async fn get_events(&self, session_id: &str) -> Result<Vec<WorkflowEvent>, WorkflowError> {
-        let aggregate_events = self.get_events_internal(session_id).await?;
-        let workflow_events: Vec<WorkflowEvent> = aggregate_events.iter().map(|ae| ae.data.clone()).collect();
-        Ok(workflow_events)
+        self.get_events_internal(session_id).await
     }
 
     async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError> {
@@ -426,17 +426,36 @@ impl EventStore for RocksDbEventStore {
     }
 }
 
+/// Shared RocksDB instance holder
+static DB_INSTANCE: once_cell::sync::OnceCell<Arc<DB>> = once_cell::sync::OnceCell::new();
+
 /// Factory for creating event stores based on configuration
 pub struct EventStoreFactory;
 
 impl EventStoreFactory {
+    /// Creates an event store and initializes shared DB if needed
     pub fn create(store_type: EventStoreType, db_path: Option<&Path>) -> Result<Arc<dyn EventStore>, WorkflowError> {
         match store_type {
             EventStoreType::InMemory => Ok(Arc::new(InMemoryEventStore::new())),
             EventStoreType::RocksDb => {
                 let path = db_path.ok_or(WorkflowError::Generic(t!("error_rocksdb_path_required")))?;
-                Ok(Arc::new(RocksDbEventStore::new(path)?))
+
+                let db = DB_INSTANCE.get_or_try_init(|| {
+                    let mut opts = Options::default();
+                    opts.create_if_missing(true);
+                    opts.set_compression_type(rocksdb::DBCompressionType::Snappy);
+                    DB::open(&opts, path)
+                        .map(Arc::new)
+                        .map_err(|e| WorkflowError::FileSystem(format!("Failed to open RocksDB: {}", e)))
+                })?;
+
+                Ok(Arc::new(RocksDbEventStore::from_db(db.clone())))
             }
         }
+    }
+
+    /// Gets the shared DB instance (for Journal)
+    pub fn get_db() -> Option<Arc<DB>> {
+        DB_INSTANCE.get().cloned()
     }
 }

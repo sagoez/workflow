@@ -2586,6 +2586,7 @@ dependencies = [
  "git2",
  "indicatif",
  "inquire",
+ "once_cell",
  "ractor",
  "rocksdb",
  "serde",

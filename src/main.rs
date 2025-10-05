@@ -55,9 +55,9 @@ use workflow::{
         command::{
             CompleteWorkflowCommand, DiscoverWorkflowsCommand, GetCurrentLanguageCommand, GetCurrentStorageCommand,
             InteractivelySelectWorkflowCommand, LangCommands, ListAggregatesCommand, ListLanguagesCommand,
-            ListWorkflowsCommand, ReplayAggregateCommand, ResolveArgumentsCommand, SetLanguageCommand,
-            SetStorageCommand, StartWorkflowCommand, StorageCommands, SyncWorkflowsCommand, WorkflowCli,
-            WorkflowCliCommand, WorkflowCommand
+            ListWorkflowsCommand, PurgeStorageCommand, ReplayAggregateCommand, ResolveArgumentsCommand,
+            SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, StorageCommands, SyncWorkflowsCommand,
+            WorkflowCli, WorkflowCliCommand, WorkflowCommand
         },
         error::WorkflowError,
         workflow::WorkflowContext
@@ -108,6 +108,9 @@ async fn main() -> Result<(), WorkflowError> {
             StorageCommands::Replay { aggregate_id } => {
                 submit_command_to_actor_system(&guardian_ref, ReplayAggregateCommand { aggregate_id }.into(), context)
                     .await
+            }
+            StorageCommands::Purge => {
+                submit_command_to_actor_system(&guardian_ref, PurgeStorageCommand.into(), context).await
             }
         },
         Some(WorkflowCliCommand::List) => {

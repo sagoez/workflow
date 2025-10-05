@@ -14,9 +14,9 @@ use crate::{
         command::{
             CompleteWorkflowCommand, DiscoverWorkflowsCommand, DiscoverWorkflowsData, GetCurrentLanguageCommand,
             GetCurrentStorageCommand, InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData,
-            ListAggregatesCommand, ListLanguagesCommand, ListWorkflowsCommand, RecordSyncResultCommand,
-            ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData, SetLanguageCommand,
-            SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
+            ListAggregatesCommand, ListLanguagesCommand, ListWorkflowsCommand, PurgeStorageCommand,
+            RecordSyncResultCommand, ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData,
+            SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
         },
         engine::EngineContext,
         error::WorkflowError,
@@ -157,7 +157,8 @@ impl_command!(WorkflowCommand {
     SetStorage(cmd),
     GetCurrentStorage(cmd),
     ListAggregates(cmd),
-    ReplayAggregate(cmd)
+    ReplayAggregate(cmd),
+    PurgeStorage(cmd)
 });
 
 #[async_trait]
@@ -1409,6 +1410,87 @@ impl Command for ListAggregatesCommand {
 
     fn is_mutating(&self) -> bool {
         false
+    }
+}
+
+#[async_trait]
+impl Command for PurgeStorageCommand {
+    type Error = WorkflowError;
+    type LoadedData = ();
+
+    async fn load(
+        &self,
+        _context: &EngineContext,
+        _app_context: &AppContext,
+        _current_state: &WorkflowState
+    ) -> Result<Self::LoadedData, Self::Error> {
+        Ok(())
+    }
+
+    fn validate(&self, _loaded: &Self::LoadedData) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    async fn emit(
+        &self,
+        _loaded: &Self::LoadedData,
+        _context: &EngineContext,
+        _app_context: &AppContext,
+        _current_state: &WorkflowState
+    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
+        Ok(vec![])
+    }
+
+    async fn effect(
+        &self,
+        _previous_state: &WorkflowState,
+        _current_state: &WorkflowState,
+        _context: &EngineContext,
+        app_context: &AppContext
+    ) -> Result<(), Self::Error> {
+        use crate::adapter::storage::EventStoreType;
+
+        if app_context.config.storage_type != EventStoreType::RocksDb {
+            println!("{}", t!("storage_purge_only_rocksdb"));
+            return Ok(());
+        }
+
+        let db_path = &app_context.config.database_path;
+
+        drop(app_context.event_store.clone());
+
+        tokio::task::spawn_blocking({
+            let db_path = db_path.clone();
+            move || -> Result<(), WorkflowError> {
+                if db_path.exists() {
+                    std::fs::remove_dir_all(&db_path)
+                        .map_err(|e| WorkflowError::FileSystem(format!("Failed to remove database: {}", e)))?;
+                }
+                Ok(())
+            }
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to purge storage: {}", e)))??;
+
+        println!("{}", t!("storage_purge_success"));
+        println!("{}", t!("storage_purge_restart"));
+        Ok(())
+    }
+
+    fn name(&self) -> &'static str {
+        "purge_storage"
+    }
+
+    fn description(&self) -> &'static str {
+        "Purge all data from storage"
+    }
+
+    fn is_interactive(&self) -> bool {
+        false
+    }
+
+    fn is_mutating(&self) -> bool {
+        true
     }
 }
 

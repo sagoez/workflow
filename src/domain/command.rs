@@ -80,7 +80,9 @@ pub enum StorageCommands {
     Replay {
         /// Aggregate ID to replay
         aggregate_id: String
-    }
+    },
+    /// Purge all data from storage
+    Purge
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -156,6 +158,9 @@ pub struct ReplayAggregateCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PurgeStorageCommand;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WorkflowCommand {
     // Workflow management
     DiscoverWorkflows(DiscoverWorkflowsCommand),
@@ -178,7 +183,8 @@ pub enum WorkflowCommand {
     SetStorage(SetStorageCommand),
     GetCurrentStorage(GetCurrentStorageCommand),
     ListAggregates(ListAggregatesCommand),
-    ReplayAggregate(ReplayAggregateCommand)
+    ReplayAggregate(ReplayAggregateCommand),
+    PurgeStorage(PurgeStorageCommand)
 }
 
 impl From<SyncWorkflowsCommand> for WorkflowCommand {

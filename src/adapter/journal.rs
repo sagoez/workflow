@@ -5,15 +5,20 @@
 //! - CassandraJournal: For production (TODO)
 //! - PostgreSQLJournal: Alternative production option (TODO)
 
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use rocksdb::DB;
 use tokio::sync::RwLock;
 
 use crate::{
-    domain::{error::WorkflowError, event::WorkflowEvent},
-    port::journal::Journal
+    adapter::storage::EventStoreFactory,
+    domain::{
+        error::WorkflowError,
+        event::{AggregateEvent, EventMetadata, WorkflowEvent}
+    },
+    port::journal::Journal,
+    t
 };
 
 /// In-Memory Journal Implementation
@@ -21,8 +26,8 @@ use crate::{
 /// Simple HashMap-based storage for development and testing.
 /// Events are stored by session_id (persistence_id).
 pub struct InMemoryJournal {
-    /// Events stored by session_id -> Vec<WorkflowEvent>
-    events: Arc<RwLock<HashMap<String, Vec<WorkflowEvent>>>>
+    /// Events stored by session_id -> Vec<AggregateEvent>
+    events: Arc<RwLock<HashMap<String, Vec<AggregateEvent>>>>
 }
 
 impl InMemoryJournal {
@@ -48,7 +53,12 @@ impl Journal for InMemoryJournal {
         let session_events = store.entry(session_id.to_string()).or_insert_with(Vec::new);
 
         for event in events {
-            session_events.push(event.clone());
+            let aggregate_event = AggregateEvent {
+                aggregate_id: Some(session_id.to_string()),
+                data:         event.clone(),
+                metadata:     Some(EventMetadata::new(event.to_string()).with_aggregate_id(session_id))
+            };
+            session_events.push(aggregate_event);
         }
 
         Ok(())
@@ -58,7 +68,7 @@ impl Journal for InMemoryJournal {
         let store = self.events.read().await;
 
         if let Some(session_events) = store.get(session_id) {
-            let events = session_events.iter().skip(from_sequence as usize).cloned().collect();
+            let events = session_events.iter().skip(from_sequence as usize).map(|ae| ae.data.clone()).collect();
             Ok(events)
         } else {
             Ok(vec![])
@@ -88,21 +98,19 @@ pub struct RocksDbJournal {
 }
 
 impl RocksDbJournal {
-    pub fn new(path: &Path) -> Result<Self, WorkflowError> {
-        Self::with_snapshot_threshold(path, 100)
+    /// Creates a new RocksDB journal from an existing DB instance
+    ///
+    /// Uses a shared RocksDB instance with the EventStore to avoid locking issues.
+    pub fn new(db: Arc<DB>) -> Self {
+        Self::with_snapshot_threshold(db, 100)
     }
 
-    pub fn with_snapshot_threshold(path: &Path, snapshot_threshold: u64) -> Result<Self, WorkflowError> {
-        let mut opts = rocksdb::Options::default();
-        opts.create_if_missing(true);
-        opts.set_compression_type(rocksdb::DBCompressionType::Snappy);
-
-        let db = DB::open(&opts, path)
-            .map_err(|e| WorkflowError::FileSystem(format!("Failed to open RocksDB journal: {}", e)))?;
-
-        Ok(Self { db: Arc::new(db), snapshot_threshold })
+    /// Creates a new RocksDB journal with custom snapshot threshold
+    pub fn with_snapshot_threshold(db: Arc<DB>, snapshot_threshold: u64) -> Self {
+        Self { db, snapshot_threshold }
     }
 
+    /// Creates a snapshot of the current state of the journal
     async fn create_snapshot(
         &self,
         session_id: &str,
@@ -148,12 +156,19 @@ impl Journal for RocksDbJournal {
 
         let session_id_owned = session_id.to_string();
         let db = self.db.clone();
-        let events_to_store = events.to_vec();
+        let events_to_store: Vec<AggregateEvent> = events
+            .iter()
+            .map(|event| AggregateEvent {
+                aggregate_id: Some(session_id_owned.clone()),
+                data:         event.clone(),
+                metadata:     Some(EventMetadata::new(event.to_string()).with_aggregate_id(&session_id_owned))
+            })
+            .collect();
 
         tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
             let key = format!("journal:{}", session_id_owned);
 
-            let mut all_events: Vec<WorkflowEvent> = match db.get(key.as_bytes()) {
+            let mut all_events: Vec<AggregateEvent> = match db.get(key.as_bytes()) {
                 Ok(Some(data)) => serde_json::from_slice(&data).map_err(|e| {
                     WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
                 })?,
@@ -182,8 +197,11 @@ impl Journal for RocksDbJournal {
                 move || -> Result<Vec<WorkflowEvent>, WorkflowError> {
                     let key = format!("journal:{}", session_id);
                     match db.get(key.as_bytes()) {
-                        Ok(Some(data)) => serde_json::from_slice(&data)
-                            .map_err(|e| WorkflowError::Serialization(format!("Failed to deserialize: {}", e))),
+                        Ok(Some(data)) => {
+                            let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data)
+                                .map_err(|e| WorkflowError::Serialization(format!("Failed to deserialize: {}", e)))?;
+                            Ok(aggregate_events.into_iter().map(|ae| ae.data).collect())
+                        }
                         Ok(None) => Ok(vec![]),
                         Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read: {}", e)))
                     }
@@ -240,10 +258,10 @@ impl Journal for RocksDbJournal {
 
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
-                    let events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
+                    let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data).map_err(|e| {
                         WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
-                    Ok(events.into_iter().skip(skip_until as usize).collect())
+                    Ok(aggregate_events.into_iter().skip(skip_until as usize).map(|ae| ae.data).collect())
                 }
                 Ok(None) => Ok(vec![]),
                 Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
@@ -262,10 +280,10 @@ impl Journal for RocksDbJournal {
 
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
-                    let events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
+                    let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data).map_err(|e| {
                         WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
-                    Ok(events.len() as u64)
+                    Ok(aggregate_events.len() as u64)
                 }
                 Ok(None) => Ok(0),
                 Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
@@ -321,13 +339,13 @@ pub enum JournalType {
 pub struct JournalFactory;
 
 impl JournalFactory {
-    pub fn create(journal_type: JournalType, db_path: Option<&Path>) -> Result<Arc<dyn Journal>, WorkflowError> {
+    pub fn create(journal_type: JournalType) -> Result<Arc<dyn Journal>, WorkflowError> {
         match journal_type {
             JournalType::InMemory => Ok(Arc::new(InMemoryJournal::new())),
             JournalType::RocksDb => {
-                let path =
-                    db_path.ok_or(WorkflowError::Generic("RocksDB path required for RocksDb journal".to_string()))?;
-                Ok(Arc::new(RocksDbJournal::new(path)?))
+                let db =
+                    EventStoreFactory::get_db().ok_or(WorkflowError::Generic(t!("error_rocksdb_not_initialized")))?;
+                Ok(Arc::new(RocksDbJournal::new(db)))
             }
         }
     }
