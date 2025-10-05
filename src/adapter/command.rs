@@ -720,13 +720,26 @@ impl Command for CompleteWorkflowCommand {
 }
 
 fn resolve_static_enum_argument(arg: &WorkflowArgument, variants: &[String]) -> Result<String, WorkflowError> {
-    let prompt = format!("Select {}", arg.name);
-    let selection = Select::new(&prompt, variants.to_vec())
+    let prompt = t_params!("prompt_select", &[&arg.name]);
+
+    let custom_option = t!("enum_custom_option").to_string();
+    let mut options = vec![custom_option.clone()];
+    options.extend(variants.iter().cloned());
+
+    let selection = Select::new(&prompt, options)
         .with_page_size(10)
         .prompt()
         .map_err(|e| WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()])))?;
 
-    Ok(selection)
+    if selection == custom_option {
+        let custom_prompt = t_params!("enum_enter_custom_value", &[&arg.name]);
+        let custom_value = Text::new(&custom_prompt)
+            .prompt()
+            .map_err(|e| WorkflowError::Validation(t_params!("error_input_failed", &[&arg.name, &e.to_string()])))?;
+        Ok(custom_value)
+    } else {
+        Ok(selection)
+    }
 }
 
 /// Helper function to copy text to clipboard
@@ -787,7 +800,7 @@ async fn resolve_enum_argument(
         enum_command.to_string()
     };
 
-    println!("Executing: {}", resolved_command);
+    println!("{}", t_params!("cli_executing_command_short", &[&resolved_command]));
 
     let output = TokioCommand::new("sh")
         .arg("-c")
@@ -814,17 +827,30 @@ async fn resolve_enum_argument(
         return Err(WorkflowError::Validation(t_params!("error_no_options_found", &[&arg.name])));
     }
 
-    let prompt = format!("Select {}", arg.name);
-    let selection = Select::new(&prompt, options)
+    let prompt = t_params!("prompt_select", &[&arg.name]);
+
+    let custom_option = t!("enum_custom_option").to_string();
+    let mut all_options = vec![custom_option.clone()];
+    all_options.extend(options);
+
+    let selection = Select::new(&prompt, all_options)
         .with_page_size(10)
         .prompt()
         .map_err(|e| WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()])))?;
 
-    Ok(selection)
+    if selection == custom_option {
+        let custom_prompt = t_params!("enum_enter_custom_value", &[&arg.name]);
+        let custom_value = Text::new(&custom_prompt)
+            .prompt()
+            .map_err(|e| WorkflowError::Validation(t_params!("error_input_failed", &[&arg.name, &e.to_string()])))?;
+        Ok(custom_value)
+    } else {
+        Ok(selection)
+    }
 }
 
 fn resolve_simple_argument(arg: &WorkflowArgument) -> Result<String, WorkflowError> {
-    let prompt = format!("Enter {}", arg.name);
+    let prompt = t_params!("prompt_enter", &[&arg.name]);
     let mut text_input = Text::new(&prompt);
 
     if let Some(default_value) = &arg.default_value
@@ -840,9 +866,6 @@ fn resolve_simple_argument(arg: &WorkflowArgument) -> Result<String, WorkflowErr
 
     Ok(result)
 }
-
-// **********************
-// **********************
 
 #[derive(Debug, Clone)]
 pub struct SyncWorkflowsData {

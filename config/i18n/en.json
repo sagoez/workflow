@@ -145,5 +145,10 @@
     "state_phase_sync_requested": "Sync Requested",
     "state_phase_workflows_synced": "Workflows Synced",
     "state_phase_language_set": "Language Set",
-    "state_status_no_workflows": "No workflows discovered yet"
+    "state_status_no_workflows": "No workflows discovered yet",
+    "enum_custom_option": "[ Press Enter to type custom value ]",
+    "enum_enter_custom_value": "Enter custom value for {0}",
+    "prompt_select": "Select {0}",
+    "prompt_enter": "Enter {0}",
+    "cli_executing_command_short": "Executing: {0}"
 }

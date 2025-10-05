@@ -145,5 +145,10 @@
     "state_phase_sync_requested": "Sincronización Solicitada",
     "state_phase_workflows_synced": "Workflows Sincronizados",
     "state_phase_language_set": "Idioma Configurado",
-    "state_status_no_workflows": "No se descubrieron workflows aún"
+    "state_status_no_workflows": "No se descubrieron workflows aún",
+    "enum_custom_option": "[ Presione Enter para escribir valor personalizado ]",
+    "enum_enter_custom_value": "Ingrese valor personalizado para {0}",
+    "prompt_select": "Seleccione {0}",
+    "prompt_enter": "Ingrese {0}",
+    "cli_executing_command_short": "Ejecutando: {0}"
 }
