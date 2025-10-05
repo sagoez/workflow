@@ -4,6 +4,10 @@ use async_trait::async_trait;
 use chrono::Utc;
 use clipboard::ClipboardProvider;
 use inquire::{Select, Text};
+use tabled::{
+    builder::Builder,
+    settings::{Color, Modify, Style, object::Rows}
+};
 use tokio::process::Command as TokioCommand;
 use uuid::Uuid;
 
@@ -25,7 +29,7 @@ use crate::{
             SyncRequestedEvent, WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent,
             WorkflowEvent, WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
         },
-        state::WorkflowState,
+        state::{StateDisplay, WorkflowState},
         workflow::{ArgumentType, Workflow, WorkflowArgument}
     },
     i18n::Language,
@@ -1566,59 +1570,31 @@ impl Command for ReplayAggregateCommand {
 
 impl ReplayAggregateCommand {
     fn display_state(state: &WorkflowState) {
-        use tabled::{Table, settings::Style};
+        let mut builder = Builder::default();
 
-        match state {
-            WorkflowState::Initial(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowsDiscovered(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowsListed(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowSelected(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowStarted(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowArgumentsResolved(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowCompleted(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::SyncRequested(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::WorkflowsSynced(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
-            WorkflowState::LanguageSet(s) => {
-                let mut table = Table::new([s]);
-                table.with(Style::rounded());
-                println!("{}", table);
-            }
+        builder.push_record([t!("state_table_property"), t!("state_table_value")]);
+
+        builder.push_record([t!("state_field_phase"), state.phase_name()]);
+
+        let table_rows = state.table_rows();
+        let num_standard_fields = 2; // Phase + other standard fields (e.g., Workflow, Execution ID, etc.)
+
+        for (key, value) in &table_rows {
+            builder.push_record([key, value]);
         }
+
+        let mut table = builder.build();
+        table.with(
+            Style::modern().corner_bottom_left('╰').corner_bottom_right('╯').corner_top_left('╭').corner_top_right('╮')
+        );
+
+        // Make argument rows bold (rows after standard fields)
+        // Row 0 is header, Row 1 is Phase, Rows 2+ are from table_rows
+        if table_rows.len() > num_standard_fields {
+            let arg_start_row = 2 + num_standard_fields;
+            table.with(Modify::new(Rows::new(arg_start_row..)).with(Color::FG_BRIGHT_CYAN));
+        }
+
+        println!("{}", table);
     }
 }
