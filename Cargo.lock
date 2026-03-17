@@ -2402,6 +2402,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "wf-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "clap",
+ "clipboard",
+ "crossterm",
+ "directories",
+ "fuzzy-matcher",
+ "git2",
+ "indicatif",
+ "inquire",
+ "once_cell",
+ "ractor",
+ "rocksdb",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tabled",
+ "tempfile",
+ "tera",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
+ "whoami",
+]
+
+[[package]]
 name = "whoami"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2599,38 +2631,6 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
-]
-
-[[package]]
-name = "workflow"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "clap",
- "clipboard",
- "crossterm",
- "directories",
- "fuzzy-matcher",
- "git2",
- "indicatif",
- "inquire",
- "once_cell",
- "ractor",
- "rocksdb",
- "serde",
- "serde_json",
- "serde_yaml",
- "tabled",
- "tempfile",
- "tera",
- "thiserror",
- "tokio",
- "tokio-util",
- "tracing",
- "uuid",
- "whoami",
 ]
 
 [[package]]
