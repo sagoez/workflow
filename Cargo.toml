@@ -1,10 +1,20 @@
 [package]
-name = "workflow"
+name = "wf-cli"
 version = "0.1.0"
 edition = "2024"
+description = "Terminal-native parameterized workflow runner — define commands in YAML, resolve arguments interactively, and copy to clipboard"
+license = "MIT"
+repository = "https://github.com/sagoez/workflow"
+homepage = "https://github.com/sagoez/workflow"
+keywords = ["cli", "workflow", "yaml", "terminal", "productivity"]
+categories = ["command-line-utilities"]
+
+[lib]
+name = "workflow"
+path = "src/lib.rs"
 
 [[bin]]
-name = "workflow"
+name = "wf"
 path = "src/main.rs"
 
 [dependencies]

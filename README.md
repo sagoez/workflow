@@ -1,137 +1,144 @@
-# 🎭 Workflow CLI: The Most Overengineered YAML Runner in Existence
+# Workflow CLI
 
-Welcome to the **Workflow CLI** - a terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows) that takes the simple concept of "parameterized commands from YAML files" and turns it into a distributed, actor-based, event-sourced, internationalized, fault-tolerant masterpiece of unnecessary complexity! 🚀
+A terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows). Define parameterized commands in YAML, resolve arguments interactively, and get the final command copied to your clipboard — ready to paste.
 
-## What Does This Thing Actually Do?
-
-At its core, this application does something absolutely revolutionary: it reads YAML workflow files (dynamicallyresolvescommandargumentsthroughinteractivepromptsbutwhocares) and... **copies the final command to your clipboard**. That's it. No execution. No running. Just good old-fashioned parameterized Ctrl+V material. Think of it as Warp Workflows for people who refuse to leave their beloved terminal.
-
-## Features That Nobody Asked For
-
-- 🎪 **Interactive Workflow Selection**: Choose your YAML workflow through a beautiful CLI menu (because `ls *.yaml` is for peasants)
-- 🔧 **Dynamic Argument Resolution**: Interactive prompts for command parameters (just like Warp, but with 10x more code)
-- 🎭 **Actor Supervision Trees**: Guardian actors watching WorkflowManager actors watching CommandProcessor actors (it's turtles all the way down)
-- 📚 **Event Journaling**: Every parameter substitution is persisted as an event (because what if you need to replay that `kubectl get pods -n {{namespace}}` resolution?)
-- 🌍 **Multi-language Support**: Parameter prompt errors in English AND Spanish (porque los errores de parámetros son internacionales)
-- 🔄 **Command Chaining**: Workflows can trigger other workflows (because parameterized recursion is fun)
-- 📦 **Pluggable Storage**: Swap between in-memory and RocksDB for persistent event sourcing (because your workflow selections are too important to lose)
-
-## Usage
+## Quick Start
 
 ```bash
-# The Warp way (modern but requires Warp)
-# Use Warp's built-in workflow system with nice UI
+# Install from crates.io
+cargo install wf-cli
 
-# The simple way (boring)
-# Manually edit your YAML files and copy-paste commands
-
-# The ENTERPRISE way (exciting!)
-workflow
-# Interactive workflow selection → parameter prompts → clipboard magic!
-# Now paste with Cmd+V like a true enterprise developer!
+# Run — select a workflow, fill in the prompts, paste the result
+wf
 ```
 
-## Architecture: A Study in Overengineering
+## How It Works
 
+1. You write YAML workflow files with `{{placeholders}}` in commands
+2. Run `wf` — pick one from the interactive menu
+3. Fill in the argument prompts (text, enums, numbers, booleans)
+4. The resolved command is copied to your clipboard
+
+## Workflow YAML Format
+
+```yaml
+name: "Deploy to K8s"
+description: "Deploy an app to a Kubernetes cluster"
+command: "kubectl apply -f {{file}} --namespace {{namespace}}"
+tags: ["kubernetes", "deployment"]
+shells: ["bash", "zsh"]
+
+arguments:
+  - name: file
+    description: "Path to deployment manifest"
+    default_value: "./deployment.yaml"
+
+  - name: namespace
+    arg_type: Enum
+    description: "Target namespace"
+    enum_variants:
+      - "default"
+      - "staging"
+      - "production"
 ```
-Guardian Actor
-├── WorkflowManager Actor
-│   ├── CommandProcessor Actor (Session 1)
-│   │   ├── Engine (Pure Business Logic™)
-│   │   ├── Journal (Pluggable Persistence™)
-│   │   └── EventStore (Because Events Are Life™)
-│   └── CommandProcessor Actor (Session N)
-└── Supervision Strategy (Because Actors Need Babysitting™)
+
+### Argument Types
+
+| Type | Description |
+|------|-------------|
+| `Text` | Free text input (default) |
+| `Enum` | Select from static variants or dynamically generated via shell command |
+| `Number` | Numeric input |
+| `Boolean` | True/false |
+
+### Dynamic Enums
+
+Enum options can be generated at runtime from a shell command:
+
+```yaml
+arguments:
+  - name: namespace
+    arg_type: Enum
+    description: "Kubernetes namespace"
+    enum_command: "kubectl get namespaces --no-headers | awk '{print $1}'"
+
+  - name: pod
+    arg_type: Enum
+    description: "Pod to inspect"
+    enum_command: "kubectl get pods -n {{namespace}} --no-headers | awk '{print $1}'"
+    dynamic_resolution: "namespace"
 ```
 
-Each YAML workflow selection spawns its own CommandProcessor actor with its own Engine instance and Journal for maximum isolation. Because you never know when resolving `kubectl get pods -n {{namespace}}` parameters might crash the entire system.
+The `dynamic_resolution` field tells the CLI to resolve the referenced argument first, then use its value when executing `enum_command`.
 
-## Still Not Overengineered Enough?
+## Commands
 
-Don't worry! There are still plenty of opportunities to add more unnecessary complexity:
+```bash
+wf                  # Interactive workflow selection (default)
+wf --list           # List all available workflows
 
-- [ ] **Distributed Mode**: Why run on one machine when you can have a cluster?
-- [ ] **Blockchain Integration**: Probably?
-- [ ] **Machine Learning**: AI-powered YAML file recommendations, because the hype train might end soon
-- [ ] **Event Streaming**: Kafka for commands/events (obviously)
+# Sync workflows from a remote Git repo
+wf sync --ssh-key ~/.ssh/id_rsa --remote-url git@github.com:user/workflows.git --branch main
+
+# Language
+wf lang set en      # Set language (en, es)
+wf lang current     # Show current language
+wf lang list        # List available languages
+
+# Storage backend
+wf storage set rocksdb   # Switch to persistent storage
+wf storage set inmemory  # Switch to in-memory storage
+wf storage current       # Show current backend
+wf storage replay <id>   # Replay events for a workflow
+wf storage purge         # Clear all stored events
+```
+
+## Workflow File Location
+
+Workflow YAML files (`.yaml` / `.yml`) go in:
+
+| OS | Path |
+|----|------|
+| macOS | `~/Library/Application Support/workflow/workflows/` |
+| Linux | `~/.config/workflow/workflows/` |
+| Windows | `%APPDATA%/workflow/workflows/` |
+
+You can populate this directory manually or use `wf sync` to pull from a Git repository. See [workflow-vault](https://github.com/sagoez/workflow-vault) for an example shared workflow repo.
 
 ## Installation
 
 ### Prerequisites
 
-Before you can compile this masterpiece of overengineering, you'll need:
-
-1. **Rust** (obviously) - Install from [rustup.rs](https://rustup.rs/)
-2. **LLVM/Clang** - Required for RocksDB native bindings
+- **Rust** — install from [rustup.rs](https://rustup.rs/)
+- **LLVM/Clang** — required for RocksDB native bindings
 
 #### macOS
 
 ```bash
-# Install LLVM via Homebrew
 brew install llvm
 
-# Set environment variables for the current shell
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
 export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
-
-# Add these to your shell profile (~/.zshrc or ~/.bash_profile) for persistence
+# Add these to ~/.zshrc for persistence
 ```
 
 #### Linux (Ubuntu/Debian)
 
 ```bash
-# Install clang and LLVM
-sudo apt-get update
 sudo apt-get install clang llvm-dev libclang-dev
 ```
 
 #### Linux (Fedora/RHEL)
 
 ```bash
-# Install clang and LLVM
 sudo dnf install clang llvm-devel clang-devel
 ```
 
-### Building
+### Build from Source
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+git clone https://github.com/sagoez/workflow.git
 cd workflow
-
-# Build and install
 cargo install --path .
-
-# Or just build
-cargo build --release
 ```
-
-If you still don't know how to install a Rust program after reading this, you should probably go check yourself.
-
-## Configuration
-
-Code is.. self explanatory?
-
-## Contributing
-
-Never heard of her
-
-## License
-
-This project is licensed under the "Why Did I Do This To Myself" license.
-
----
-
-*"The best code is the code that makes you question your life choices"* - Anonymous Software Architect
-
-**Disclaimer**: No bash scripts were harmed in the making of this application. All complexity was added voluntarily and with full knowledge of the consequences.
-
-**Note**: I'm so hard-headed that I debated for three days whether to use AI to help write the README. In the end, I gave in and decided to let the AI write the entire thing (like the whole CLI). All hail [vibe coding](https://vibemanifesto.org/).
-
-
-**Even more notes just because I like this note at the bottom thingy**: I'll probably add gifs (and emojis) on how to use it later.
-
-**On a more serious note**: I do use this on a daily basis LOL. Just because my memory fails me and is convenient.
-
-Companion project: https://github.com/sagoez/workflow-vault
