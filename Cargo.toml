@@ -32,7 +32,7 @@ tokio-util = "0.7"
 ractor = { version = "0.15.8", features = ["cluster", "monitors", "serde", "async-trait"] }
 tracing = "0.1"
 uuid = { version = "1.18.1", features = ["v4"] }
-whoami = "1.6.1"
+whoami = "2.0.0"
 
 [dev-dependencies]
 tempfile = "3.8"
