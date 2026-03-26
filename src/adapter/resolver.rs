@@ -69,12 +69,13 @@ impl ArgumentResolver {
         if selection == custom_option { Self::prompt_for_custom_value(&arg.name) } else { Ok(selection) }
     }
 
-    /// Resolve enum argument with dynamic command execution
-    async fn resolve_dynamic_enum_argument(
+    /// Execute a command and parse its output into a list of options.
+    /// Handles dynamic_resolution substitution if configured.
+    async fn execute_enum_command(
         arg: &WorkflowArgument,
         enum_command: &str,
         current_values: &HashMap<String, String>
-    ) -> Result<String, WorkflowError> {
+    ) -> Result<Vec<String>, WorkflowError> {
         let resolved_command = if let Some(ref_arg) = &arg.dynamic_resolution {
             if let Some(ref_value) = current_values.get(ref_arg) {
                 enum_command.replace(&format!("{{{{{}}}}}", ref_arg), ref_value)
@@ -111,6 +112,17 @@ impl ArgumentResolver {
         if options.is_empty() {
             return Err(WorkflowError::Validation(t_params!("error_no_options_found", &[&arg.name])));
         }
+
+        Ok(options)
+    }
+
+    /// Resolve enum argument with dynamic command execution
+    async fn resolve_dynamic_enum_argument(
+        arg: &WorkflowArgument,
+        enum_command: &str,
+        current_values: &HashMap<String, String>
+    ) -> Result<String, WorkflowError> {
+        let options = Self::execute_enum_command(arg, enum_command, current_values).await?;
 
         let prompt = t_params!("prompt_select", &[&arg.name]);
 
