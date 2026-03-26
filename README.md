@@ -2,6 +2,8 @@
 
 A terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows). Define parameterized commands in YAML, resolve arguments interactively, and get the final command copied to your clipboard — ready to paste.
 
+> Built with event sourcing, CQRS, hexagonal architecture, and an actor model — because I wanted to learn all of that and needed an excuse to build something. You could do this in 50 lines of bash. But your bash script wouldn't have an actor model.
+
 ## Quick Start
 
 ```bash
