@@ -162,8 +162,8 @@ impl WorkflowContext {
     pub fn new() -> Self {
         Self {
             session_id:        Uuid::new_v4().to_string(),
-            user:              whoami::username(),
-            hostname:          whoami::fallible::hostname().unwrap_or_else(|_| "unknown".to_string()),
+            user:              whoami::username().unwrap_or_else(|_| "unknown".to_string()),
+            hostname:          whoami::hostname().unwrap_or_else(|_| "unknown".to_string()),
             working_directory: std::env::current_dir()
                 .unwrap_or_else(|_| PathBuf::from("unknown"))
                 .to_string_lossy()
