@@ -1,0 +1,23 @@
+---
+title: Internationalization
+description: Language support
+---
+
+The CLI supports multiple languages. Currently available: English and Spanish.
+
+> Two whole languages. Truly enterprise-grade internationalization.
+
+## Usage
+
+```bash
+wf lang set es       # Switch to Spanish
+wf lang set en       # Switch to English
+wf lang current      # Show current language
+wf lang list         # List available languages
+```
+
+## How It Works
+
+All user-facing strings are loaded from translation files at compile time. The `t!` and `t_params!` macros resolve keys to the current language, with compile-time validation that every key exists.
+
+This means if you typo a translation key, the project won't compile. Which is genuinely nice.

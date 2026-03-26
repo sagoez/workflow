@@ -1,0 +1,45 @@
+---
+title: Storage
+description: Event storage backends and replay
+---
+
+Every workflow execution is recorded as a series of events. Because obviously a clipboard tool needs an audit trail.
+
+## Backends
+
+| Backend | Description |
+|---------|-------------|
+| `inmemory` | Events live in memory, gone when the process exits. Fast, ephemeral. |
+| `rocksdb` | Events persisted to disk via RocksDB. Survives restarts. Requires LLVM. |
+
+### Switch Backend
+
+```bash
+wf storage set rocksdb
+wf storage set inmemory
+wf storage current       # Show which one is active
+```
+
+## Event Replay
+
+You can replay the events for any stored workflow session to see its final state:
+
+```bash
+wf storage replay <aggregate-id>
+```
+
+This reconstructs the state machine from scratch by replaying all events in order. It's like time travel, but for clipboard commands.
+
+### List All Sessions
+
+```bash
+wf storage list
+```
+
+## Purge
+
+```bash
+wf storage purge
+```
+
+Wipes all stored events. No confirmation prompt, no undo. Live dangerously.

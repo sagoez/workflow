@@ -1,0 +1,58 @@
+---
+title: Architecture
+description: Why is this the way it is
+---
+
+# The Architecture
+
+Let's be real: this is a CLI that copies commands to your clipboard. It did not need any of the following. But here we are.
+
+## The Stack
+
+- **Event Sourcing** — every workflow execution is stored as a series of immutable events. You can replay them. Why? Good question.
+- **CQRS** — commands and queries are strictly separated. Commands go through a 4-phase lifecycle: `load → validate → emit → effect`. For a clipboard tool.
+- **Actor Model** — powered by [Ractor](https://github.com/slawlor/ractor). Each workflow execution runs in its own actor with message passing. Because threads are for quitters.
+- **Hexagonal Architecture** — ports and adapters everywhere. The domain doesn't know about the filesystem, the terminal, or the clipboard. It's pure. It's clean. It copies text to your clipboard.
+- **State Machine** — the workflow goes through `Initial → WorkflowsDiscovered → WorkflowSelected → WorkflowStarted → ArgumentsResolved → Completed`. Six states. To paste a command.
+
+## The Honest Diagram
+
+```
+User types "wf"
+       │
+       ▼
+  Actor spawns
+       │
+       ▼
+  DiscoverWorkflowsCommand
+       │
+       ▼
+  Command.load() ──► reads YAML files through a FileSystem port
+       │
+       ▼
+  Command.validate() ──► checks... that files were read correctly
+       │
+       ▼
+  Command.emit() ──► creates WorkflowDiscoveredEvent(s)
+       │
+       ▼
+  Events applied to state machine ──► Initial → WorkflowsDiscovered
+       │
+       ▼
+  Command.effect() ──► prints "found N workflows"
+       │
+       ▼
+  ... 5 more commands, same lifecycle each ...
+       │
+       ▼
+  Clipboard.copy(rendered_command)
+       │
+       ▼
+  Done. That's all it ever did.
+```
+
+## Why Though
+
+This started because I wanted an excuse to use [Ractor](https://github.com/slawlor/ractor), an actor library for Rust. Everything else — the event sourcing, CQRS, hexagonal architecture — just kind of happened along the way. The clipboard part is just a convenient excuse to have a working product at the end.
+
+If you're reading this and thinking "I could build this in 50 lines of bash" — you're absolutely right. But your bash script wouldn't have an actor model.

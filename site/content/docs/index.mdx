@@ -1,0 +1,35 @@
+---
+title: Introduction
+description: What is wf-cli and why does it exist
+---
+
+# wf-cli
+
+A terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows). Define parameterized commands in YAML, resolve arguments interactively, and get the final command copied to your clipboard — ready to paste.
+
+> You could just use shell aliases. But where's the fun in that?
+
+## How It Works
+
+1. You write YAML workflow files with `{{placeholders}}` in commands
+2. Run `wf` — pick one from the interactive menu
+3. Fill in the argument prompts (text, enums, numbers, booleans)
+4. The resolved command is copied to your clipboard
+
+That's it. That's the whole product. Everything else in this codebase is... architectural enthusiasm.
+
+## Quick Start
+
+```bash
+# Install from crates.io
+cargo install wf-cli
+
+# Run — select a workflow, fill in the prompts, paste the result
+wf
+```
+
+<Cards>
+  <Card title="Installation" href="/docs/installation" />
+  <Card title="Writing Workflows" href="/docs/workflows" />
+  <Card title="All Commands" href="/docs/commands" />
+</Cards>

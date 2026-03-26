@@ -1,0 +1,30 @@
+---
+title: Sync
+description: Sync workflows from a remote Git repository
+---
+
+Keep your workflows in a Git repo and pull them down with `wf sync`.
+
+## Usage
+
+```bash
+wf sync --remote-url git@github.com:user/my-workflows.git --branch main --ssh-key ~/.ssh/id_rsa
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--remote-url` | No | Git repo URL (defaults to [workflow-vault](https://github.com/sagoez/workflow-vault)) |
+| `--branch` | No | Branch to pull from (defaults to `main`) |
+| `--ssh-key` | No | Path to SSH key for private repos |
+
+## How It Works
+
+1. Clones (or pulls) the remote repo into your workflows directory
+2. Records the sync result (commit ID) as an event in the event store
+3. Workflows are immediately available for use
+
+> The sync operation emits a `SyncRequestedEvent`, which transitions the state machine, which then schedules a `RecordSyncResultCommand` as a side effect. It's `git clone` with extra steps.
+
+## Shared Workflow Repos
+
+You can share workflows across a team by hosting them in a Git repo. See [workflow-vault](https://github.com/sagoez/workflow-vault) for an example.

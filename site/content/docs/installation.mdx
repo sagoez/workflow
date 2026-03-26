@@ -1,0 +1,46 @@
+---
+title: Installation
+description: How to install wf-cli
+---
+
+## From crates.io
+
+```bash
+cargo install wf-cli
+```
+
+## Prerequisites
+
+- **Rust** — install from [rustup.rs](https://rustup.rs/)
+- **LLVM/Clang** — required for RocksDB native bindings (yes, this clipboard tool has a database)
+
+### macOS
+
+```bash
+brew install llvm
+
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/llvm/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+# Add these to ~/.zshrc for persistence
+```
+
+### Linux (Ubuntu/Debian)
+
+```bash
+sudo apt-get install clang llvm-dev libclang-dev
+```
+
+### Linux (Fedora/RHEL)
+
+```bash
+sudo dnf install clang llvm-devel clang-devel
+```
+
+## Build from Source
+
+```bash
+git clone https://github.com/sagoez/workflow.git
+cd workflow
+cargo install --path .
+```

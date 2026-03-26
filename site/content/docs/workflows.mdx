@@ -1,0 +1,183 @@
+---
+title: Writing Workflows
+description: How to define workflow YAML files
+---
+
+Workflows are YAML files that define a parameterized command. You write the template once, and `wf` handles the rest.
+
+## Basic Example
+
+```yaml
+name: "Deploy to K8s"
+description: "Deploy an app to a Kubernetes cluster"
+command: "kubectl apply -f {{file}} --namespace {{namespace}}"
+tags: ["kubernetes", "deployment"]
+shells: ["bash", "zsh"]
+
+arguments:
+  - name: file
+    description: "Path to deployment manifest"
+    default_value: "./deployment.yaml"
+
+  - name: namespace
+    arg_type: Enum
+    description: "Target namespace"
+    enum_variants:
+      - "default"
+      - "staging"
+      - "production"
+```
+
+## Workflow File Location
+
+Workflow YAML files (`.yaml` / `.yml`) go in:
+
+| OS | Path |
+|----|------|
+| macOS | `~/Library/Application Support/workflow/workflows/` |
+| Linux | `~/.config/workflow/workflows/` |
+| Windows | `%APPDATA%/workflow/workflows/` |
+
+You can populate this directory manually or use [`wf sync`](/docs/sync) to pull from a Git repository.
+
+## Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Display name shown in the interactive menu |
+| `description` | Yes | Short description of what the workflow does |
+| `command` | Yes | Command template with `{{placeholder}}` variables |
+| `arguments` | No | List of arguments to resolve before running |
+| `tags` | No | Tags for organization |
+| `shells` | No | Shells this workflow is intended for |
+| `source_url` | No | Link to the original source |
+| `author` | No | Who wrote this workflow |
+| `author_url` | No | Link to the author |
+
+## Template Syntax
+
+Commands use [Tera](https://keats.github.io/tera/) template syntax. The most common pattern is `{{variable_name}}`, which gets replaced with the resolved argument value.
+
+> We could have used simple string replace. Instead we brought in a full template engine. You're welcome.
+
+```yaml
+command: "docker build -t {{image}}:{{tag}} . && docker push {{image}}:{{tag}}"
+```
+
+## More Examples
+
+### Docker Compose Service Restart
+
+```yaml
+name: "Restart Docker Service"
+description: "Stop, rebuild, and restart a specific docker-compose service"
+command: "docker-compose -f {{compose_file}} up -d --build {{service}}"
+tags: ["docker", "devops"]
+shells: ["bash", "zsh"]
+
+arguments:
+  - name: compose_file
+    description: "Path to docker-compose file"
+    default_value: "docker-compose.yml"
+
+  - name: service
+    arg_type: Enum
+    description: "Service to restart"
+    enum_command: "docker-compose -f {{compose_file}} config --services"
+    dynamic_resolution: "compose_file"
+```
+
+Notice how `service` depends on `compose_file` — `wf` resolves the compose file path first, then runs `docker-compose config --services` against it to populate the service list. Pick a different compose file, get a different list of services.
+
+### SSH into a Server
+
+```yaml
+name: "SSH Connect"
+description: "SSH into a server with optional port forwarding"
+command: "ssh -i {{key}} {{user}}@{{host}} {{port_forward}}"
+tags: ["ssh", "remote"]
+
+arguments:
+  - name: key
+    description: "Path to SSH key"
+    default_value: "~/.ssh/id_rsa"
+
+  - name: user
+    description: "Remote username"
+    default_value: "ubuntu"
+
+  - name: host
+    arg_type: Enum
+    description: "Server to connect to"
+    enum_variants:
+      - "prod-api-1.example.com"
+      - "prod-api-2.example.com"
+      - "staging.example.com"
+
+  - name: port_forward
+    description: "Port forwarding flags (leave empty for none)"
+    default_value: ""
+```
+
+### Kubernetes Pod Debugging — Nested Resolution
+
+This one chains three levels of dynamic resolution:
+
+```yaml
+name: "K8s Pod Exec"
+description: "Exec into a pod in a specific namespace and container"
+command: "kubectl exec -it {{pod}} -n {{namespace}} -c {{container}} -- {{shell}}"
+tags: ["kubernetes", "debugging"]
+shells: ["bash", "zsh"]
+
+arguments:
+  - name: namespace
+    arg_type: Enum
+    description: "Kubernetes namespace"
+    enum_command: "kubectl get namespaces --no-headers | awk '{print $1}'"
+
+  - name: pod
+    arg_type: Enum
+    description: "Pod to exec into"
+    enum_command: "kubectl get pods -n {{namespace}} --no-headers | awk '{print $1}'"
+    dynamic_resolution: "namespace"
+
+  - name: container
+    arg_type: Enum
+    description: "Container inside the pod"
+    enum_command: "kubectl get pod {{pod}} -n {{namespace}} -o jsonpath='{.spec.containers[*].name}' | tr ' ' '\n'"
+    dynamic_resolution: "pod"
+
+  - name: shell
+    arg_type: Enum
+    description: "Shell to use"
+    enum_variants:
+      - "/bin/bash"
+      - "/bin/sh"
+```
+
+You pick a namespace → it fetches pods in that namespace → you pick a pod → it fetches containers in that pod → you pick a container and a shell. All from one YAML file.
+
+### Git Workflow with MultiEnum
+
+```yaml
+name: "Cherry Pick Commits"
+description: "Cherry-pick one or more commits from another branch"
+command: "git cherry-pick {{commits}}"
+tags: ["git"]
+
+arguments:
+  - name: branch
+    arg_type: Enum
+    description: "Source branch"
+    enum_command: "git branch --format='%(refname:short)'"
+
+  - name: commits
+    arg_type: MultiEnum
+    description: "Commits to cherry-pick"
+    enum_command: "git log {{branch}} --oneline -20 | awk '{print $1}'"
+    dynamic_resolution: "branch"
+    min_selections: 1
+```
+
+Pick a branch, then select multiple commits from its history. The selected commit hashes get joined with `,` and passed to `git cherry-pick`.

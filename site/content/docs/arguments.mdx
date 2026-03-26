@@ -1,0 +1,110 @@
+---
+title: Arguments
+description: Argument types and dynamic resolution
+---
+
+Arguments define the interactive prompts users see when running a workflow.
+
+## Argument Types
+
+| Type | Description |
+|------|-------------|
+| `Text` | Free text input (default) |
+| `Enum` | Select one from a list |
+| `MultiEnum` | Select multiple from a list (joined with `,`) |
+| `Number` | Numeric input |
+| `Boolean` | True/false |
+
+## Text Arguments
+
+The default type. Just a text prompt with an optional default value.
+
+```yaml
+arguments:
+  - name: image_name
+    description: "Docker image name"
+    default_value: "my-app"
+```
+
+## Enum Arguments
+
+Pick one from a list. You can define variants statically or generate them dynamically.
+
+### Static Variants
+
+```yaml
+arguments:
+  - name: env
+    arg_type: Enum
+    description: "Target environment"
+    enum_variants:
+      - "dev"
+      - "staging"
+      - "production"
+```
+
+### Dynamic Variants (Shell Command)
+
+Enum options generated at runtime from a shell command:
+
+```yaml
+arguments:
+  - name: namespace
+    arg_type: Enum
+    description: "Kubernetes namespace"
+    enum_command: "kubectl get namespaces --no-headers | awk '{print $1}'"
+```
+
+### Dynamic Resolution (Chained Arguments)
+
+An argument can depend on a previously resolved argument. The `dynamic_resolution` field tells `wf` to resolve the referenced argument first, then substitute its value into `enum_command`.
+
+```yaml
+arguments:
+  - name: namespace
+    arg_type: Enum
+    description: "Kubernetes namespace"
+    enum_command: "kubectl get namespaces --no-headers | awk '{print $1}'"
+
+  - name: pod
+    arg_type: Enum
+    description: "Pod to inspect"
+    enum_command: "kubectl get pods -n {{namespace}} --no-headers | awk '{print $1}'"
+    dynamic_resolution: "namespace"
+```
+
+> This is genuinely useful. We promise not every feature is over-the-top.
+
+## MultiEnum Arguments
+
+Select multiple items from a list. Selected values are joined with `,` and substituted as a single string.
+
+```yaml
+arguments:
+  - name: services
+    arg_type: MultiEnum
+    description: "Services to deploy"
+    enum_variants:
+      - "api"
+      - "web"
+      - "worker"
+      - "scheduler"
+    min_selections: 1
+    max_selections: 3
+```
+
+This resolves to something like `api,web,worker` in the command template.
+
+## Argument Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Variable name used in the command template |
+| `description` | Yes | Prompt text shown to the user |
+| `arg_type` | No | `Text` (default), `Enum`, `Number`, `Boolean` |
+| `default_value` | No | Pre-filled value for text inputs |
+| `enum_variants` | No | Static list of options for `Enum` type |
+| `enum_command` | No | Shell command that outputs options (one per line) |
+| `dynamic_resolution` | No | Name of another argument to resolve first |
+| `min_selections` | No | Minimum selections required for `MultiEnum` |
+| `max_selections` | No | Maximum selections allowed for `MultiEnum` |

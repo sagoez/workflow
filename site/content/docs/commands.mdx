@@ -1,0 +1,50 @@
+---
+title: Commands
+description: All available CLI commands
+---
+
+## Default
+
+```bash
+wf
+```
+
+Launches the interactive workflow picker. Select a workflow, fill in the prompts, get the command on your clipboard. The whole reason this thing exists.
+
+## List Workflows
+
+```bash
+wf --list
+```
+
+Prints available workflow names. No interactivity, no clipboard, no drama.
+
+## Sync
+
+```bash
+wf sync --ssh-key ~/.ssh/id_rsa --remote-url git@github.com:user/workflows.git --branch main
+```
+
+Clones workflows from a remote Git repo into your local workflows directory. See [Sync](/docs/sync) for details.
+
+## Language
+
+```bash
+wf lang set en       # Set language (en, es)
+wf lang current      # Show current language
+wf lang list         # List available languages
+```
+
+See [i18n](/docs/i18n).
+
+## Storage
+
+```bash
+wf storage set rocksdb    # Switch to persistent storage
+wf storage set inmemory   # Switch to in-memory storage
+wf storage current        # Show current backend
+wf storage replay <id>    # Replay events for a workflow session
+wf storage purge          # Clear all stored events
+```
+
+See [Storage](/docs/storage).

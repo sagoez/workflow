@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@takumi-rs/image-response':
-        specifier: ^0.73.1
-        version: 0.73.1
       fumadocs-core:
         specifier: 16.7.6
         version: 16.7.6(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@1.7.0(react@19.2.4))(next@16.2.1(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
@@ -36,9 +33,6 @@ importers:
         specifier: ^3.5.0
         version: 3.5.0
     devDependencies:
-      '@netlify/plugin-nextjs':
-        specifier: ^5.15.9
-        version: 5.15.9
       '@tailwindcss/postcss':
         specifier: ^4.2.2
         version: 4.2.2
@@ -541,10 +535,6 @@ packages:
 
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
-
-  '@netlify/plugin-nextjs@5.15.9':
-    resolution: {integrity: sha512-4kJvV+wrt4/ncehfaOXfhv1FYKCv9EFjq6/tgXXYSlqPDcbsuTXR0DTz9IvyZ/CpPRadRD/zzIqD9wXgCmA2lg==}
-    engines: {node: '>=18.0.0'}
 
   '@next/env@16.2.1':
     resolution: {integrity: sha512-n8P/HCkIWW+gVal2Z8XqXJ6aB3J0tuM29OcHpCsobWlChH/SITBs1DFBk/HajgrwDkqqBXPbuUuzgDvUekREPg==}
@@ -3709,8 +3699,6 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@netlify/plugin-nextjs@5.15.9': {}
-
   '@next/env@16.2.1': {}
 
   '@next/eslint-plugin-next@16.2.1':
@@ -4280,18 +4268,22 @@ snapshots:
       '@takumi-rs/core-linux-x64-musl': 0.73.1
       '@takumi-rs/core-win32-arm64-msvc': 0.73.1
       '@takumi-rs/core-win32-x64-msvc': 0.73.1
+    optional: true
 
-  '@takumi-rs/helpers@0.73.1': {}
+  '@takumi-rs/helpers@0.73.1':
+    optional: true
 
   '@takumi-rs/image-response@0.73.1':
     dependencies:
       '@takumi-rs/core': 0.73.1
       '@takumi-rs/helpers': 0.73.1
       '@takumi-rs/wasm': 0.73.1
+    optional: true
 
   '@takumi-rs/wasm@0.73.1':
     dependencies:
       '@takumi-rs/helpers': 0.73.1
+    optional: true
 
   '@tybys/wasm-util@0.10.1':
     dependencies:

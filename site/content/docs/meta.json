@@ -1,0 +1,18 @@
+{
+  "title": "wf-cli",
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "installation",
+    "---Usage---",
+    "workflows",
+    "arguments",
+    "commands",
+    "---Advanced---",
+    "sync",
+    "storage",
+    "i18n",
+    "---The Lore---",
+    "architecture"
+  ]
+}
