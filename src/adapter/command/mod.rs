@@ -14,14 +14,14 @@ use crate::{
         command::{
             CompleteWorkflowCommand, GetCurrentLanguageCommand,
             GetCurrentStorageCommand,
-            ListAggregatesCommand, ListLanguagesCommand, ListWorkflowsCommand,
+            ListAggregatesCommand, ListLanguagesCommand,
             RecordSyncResultCommand, ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData,
             SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
         },
         engine::EngineContext,
         error::WorkflowError,
         event::{
-            AggregateReplayedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent, SyncRequestedEvent,
+            AggregateReplayedEvent, LanguageSetEvent, SyncRequestedEvent,
             WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowEvent,
             WorkflowStartedEvent
         },
@@ -33,6 +33,7 @@ use crate::{
 };
 
 pub mod discover;
+pub mod list;
 pub mod purge;
 pub mod select;
 pub mod sync_record;
@@ -165,91 +166,6 @@ impl_command!(WorkflowCommand {
     ReplayAggregate(cmd),
     PurgeStorage(cmd)
 });
-
-#[async_trait]
-impl Command for ListWorkflowsCommand {
-    type Error = WorkflowError;
-    type LoadedData = ();
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        Ok(())
-    }
-
-    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let discovered_workflows = match current_state {
-            WorkflowState::WorkflowsDiscovered(state) => &state.discovered_workflows,
-            WorkflowState::Initial(_) => &vec![],
-            _ => return Err(WorkflowError::Validation(t!("error_workflows_not_discovered_yet")))
-        };
-
-        let workflow_names: Vec<String> = discovered_workflows.iter().map(|w| w.name.clone()).collect();
-        let event = AvailableWorkflowsListedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now(),
-            workflows: workflow_names
-        };
-
-        Ok(vec![WorkflowEvent::AvailableWorkflowsListed(event)])
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        println!("{}", t!("cli_available_workflows"));
-        println!();
-        match current_state {
-            WorkflowState::WorkflowsListed(state) => {
-                for workflow in &state.discovered_workflows {
-                    println!("  - {}", workflow.name);
-                }
-                if state.discovered_workflows.is_empty() {
-                    println!("  {}", t!("no_workflows_found"));
-                }
-            }
-            _ => {
-                println!("  {}", t!("no_workflows_found"));
-            }
-        }
-
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "list-workflows"
-    }
-
-    fn description(&self) -> &'static str {
-        "Lists all available workflow YAML files"
-    }
-
-    fn is_interactive(&self) -> bool {
-        false
-    }
-
-    fn is_mutating(&self) -> bool {
-        false
-    }
-}
 
 #[async_trait]
 impl Command for StartWorkflowCommand {
