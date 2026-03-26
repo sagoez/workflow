@@ -1,6 +1,9 @@
 pub mod command;
 pub mod engine;
 pub mod event;
+pub mod executor;
+pub mod filesystem;
 pub mod git;
 pub mod journal;
+pub mod prompt;
 pub mod storage;

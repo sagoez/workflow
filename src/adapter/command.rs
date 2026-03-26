@@ -534,7 +534,7 @@ impl Command for ResolveArgumentsCommand {
     async fn load(
         &self,
         _context: &EngineContext,
-        _app_context: &AppContext,
+        app_context: &AppContext,
         current_state: &WorkflowState
     ) -> Result<Self::LoadedData, Self::Error> {
         let workflow = match current_state {
@@ -543,7 +543,11 @@ impl Command for ResolveArgumentsCommand {
         };
 
         let resolved_arguments =
-            ArgumentResolver::resolve_workflow_arguments(&workflow.arguments).await.map_err(|e| {
+            ArgumentResolver::resolve_workflow_arguments(
+                &workflow.arguments,
+                &*app_context.prompt,
+                &*app_context.executor
+            ).await.map_err(|e| {
                 WorkflowError::Validation(t_params!("error_failed_to_resolve_arguments", &[&e.to_string()]))
             })?;
 

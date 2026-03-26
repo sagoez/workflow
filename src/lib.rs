@@ -8,7 +8,10 @@ pub mod service;
 use std::sync::Arc;
 
 use crate::{
-    adapter::git::Git2Client, domain::error::WorkflowError, i18n::display::TextManager, port::git::GitClient,
+    adapter::{executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, prompt::InquirePrompt},
+    domain::error::WorkflowError,
+    i18n::display::TextManager,
+    port::{executor::CommandExecutor, filesystem::FileSystem, git::GitClient, prompt::UserPrompt},
     service::config::AppConfig
 };
 
@@ -22,7 +25,13 @@ pub struct AppContext {
     /// Git client for repository operations
     pub git_client:   Arc<dyn GitClient>,
     /// Event store for persistence
-    pub event_store:  Arc<dyn crate::port::storage::EventStore>
+    pub event_store:  Arc<dyn crate::port::storage::EventStore>,
+    /// User prompt for interactive input
+    pub prompt:       Arc<dyn UserPrompt>,
+    /// Command executor for shell commands
+    pub executor:     Arc<dyn CommandExecutor>,
+    /// File system operations
+    pub filesystem:   Arc<dyn FileSystem>
 }
 
 impl AppContext {
@@ -44,6 +53,10 @@ impl AppContext {
         let event_store =
             crate::adapter::storage::EventStoreFactory::create(config.storage_type, Some(&config.database_path))?;
 
-        Ok(Self { config, text_manager: text_manager.clone(), git_client, event_store })
+        let prompt = Arc::new(InquirePrompt::new()) as Arc<dyn UserPrompt>;
+        let executor = Arc::new(ShellExecutor::new()) as Arc<dyn CommandExecutor>;
+        let filesystem = Arc::new(StdFileSystem::new()) as Arc<dyn FileSystem>;
+
+        Ok(Self { config, text_manager: text_manager.clone(), git_client, event_store, prompt, executor, filesystem })
     }
 }
