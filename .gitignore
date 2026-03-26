@@ -22,3 +22,5 @@ target
 #.idea/
 
 .DS_Store
+
+docs/
