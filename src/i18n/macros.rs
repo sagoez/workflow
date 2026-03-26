@@ -4,9 +4,11 @@
 /// at compile time, preventing runtime errors from typos or missing keys.
 ///
 /// Usage:
-/// ```
+/// ```no_run
+/// use workflow::t;
+/// use workflow::i18n::Language;
 /// let text = t!("welcome_message");
-/// let text = t!("error_file_not_found", Language::Spanish);
+/// let text = t!("welcome_message", Language::Spanish);
 /// ```
 #[macro_export]
 macro_rules! t {
