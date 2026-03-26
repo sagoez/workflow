@@ -186,3 +186,193 @@ impl Default for WorkflowContext {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_arg_type_is_text() {
+        let yaml = r#"
+            name: test
+            arg_type: Text
+            description: "a test"
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(matches!(arg.arg_type, ArgumentType::Text));
+    }
+
+    #[test]
+    fn arg_type_defaults_to_text_when_omitted() {
+        let yaml = r#"
+            name: test
+            description: "a test"
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(matches!(arg.arg_type, ArgumentType::Text));
+    }
+
+    #[test]
+    fn all_arg_types_deserialize() {
+        for (type_str, expected) in [
+            ("Text", "Text"),
+            ("Enum", "Enum"),
+            ("MultiEnum", "MultiEnum"),
+            ("Number", "Number"),
+            ("Boolean", "Boolean"),
+        ] {
+            let yaml = format!("name: test\narg_type: {}\ndescription: a test", type_str);
+            let arg: WorkflowArgument = serde_yaml::from_str(&yaml).unwrap();
+            assert_eq!(format!("{:?}", arg.arg_type), expected);
+        }
+    }
+
+    #[test]
+    fn multi_enum_with_selection_constraints() {
+        let yaml = r#"
+            name: envs
+            arg_type: MultiEnum
+            description: "Select envs"
+            enum_variants:
+              - dev
+              - staging
+              - prod
+            min_selections: 1
+            max_selections: 3
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(matches!(arg.arg_type, ArgumentType::MultiEnum));
+        assert_eq!(arg.min_selections, Some(1));
+        assert_eq!(arg.max_selections, Some(3));
+        assert_eq!(arg.enum_variants.as_ref().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn selection_constraints_default_to_none() {
+        let yaml = r#"
+            name: test
+            description: "a test"
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(arg.min_selections, None);
+        assert_eq!(arg.max_selections, None);
+    }
+
+    #[test]
+    fn workflow_deserializes_from_yaml() {
+        let yaml = r#"
+            name: "Deploy"
+            command: "kubectl apply -f {{file}}"
+            description: "Deploy to cluster"
+            arguments:
+              - name: file
+                description: "Manifest file"
+            tags: ["k8s"]
+            shells: ["bash"]
+        "#;
+        let wf: Workflow = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(wf.name, "Deploy");
+        assert_eq!(wf.command, "kubectl apply -f {{file}}");
+        assert_eq!(wf.arguments.len(), 1);
+        assert_eq!(wf.tags, vec!["k8s"]);
+        assert_eq!(wf.shells, vec!["bash"]);
+    }
+
+    #[test]
+    fn workflow_optional_fields_default_to_none() {
+        let yaml = r#"
+            name: "Test"
+            command: "echo"
+            description: "Test"
+            arguments: []
+            tags: []
+            shells: []
+        "#;
+        let wf: Workflow = serde_yaml::from_str(yaml).unwrap();
+        assert!(wf.source_url.is_none());
+        assert!(wf.author.is_none());
+        assert!(wf.author_url.is_none());
+    }
+
+    #[test]
+    fn workflow_optional_fields_present() {
+        let yaml = r#"
+            name: "Test"
+            command: "echo"
+            description: "Test"
+            arguments: []
+            tags: []
+            shells: []
+            source_url: "https://example.com"
+            author: "Alice"
+            author_url: "https://alice.dev"
+        "#;
+        let wf: Workflow = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(wf.source_url.as_deref(), Some("https://example.com"));
+        assert_eq!(wf.author.as_deref(), Some("Alice"));
+        assert_eq!(wf.author_url.as_deref(), Some("https://alice.dev"));
+    }
+
+    #[test]
+    fn workflow_display_shows_name() {
+        let wf = Workflow {
+            name:        "My Workflow".to_string(),
+            command:     "echo".to_string(),
+            description: "desc".to_string(),
+            arguments:   vec![],
+            tags:        vec![],
+            source_url:  None,
+            author:      None,
+            author_url:  None,
+            shells:      vec![]
+        };
+        assert_eq!(format!("{}", wf), "My Workflow");
+    }
+
+    #[test]
+    fn workflow_context_new_populates_fields() {
+        let ctx = WorkflowContext::new();
+        assert!(!ctx.session_id.is_empty());
+        assert!(!ctx.user.is_empty());
+        assert!(!ctx.hostname.is_empty());
+        assert!(!ctx.working_directory.is_empty());
+    }
+
+    #[test]
+    fn workflow_context_with_session_id_overrides() {
+        let ctx = WorkflowContext::with_session_id("custom-session");
+        assert_eq!(ctx.session_id, "custom-session");
+        assert!(!ctx.user.is_empty());
+    }
+
+    #[test]
+    fn argument_with_enum_command_and_dynamic_resolution() {
+        let yaml = r#"
+            name: pod
+            arg_type: Enum
+            description: "Select pod"
+            enum_name: "pods"
+            enum_command: "kubectl get pods -n {{namespace}} --no-headers | awk '{print $1}'"
+            dynamic_resolution: namespace
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(arg.enum_name.as_deref(), Some("pods"));
+        assert!(arg.enum_command.as_ref().unwrap().contains("{{namespace}}"));
+        assert_eq!(arg.dynamic_resolution.as_deref(), Some("namespace"));
+    }
+
+    #[test]
+    fn argument_default_value_variants() {
+        let yaml = "name: x\ndescription: d\ndefault_value: hello";
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(arg.default_value.as_deref(), Some("hello"));
+
+        let yaml = "name: x\ndescription: d\ndefault_value: ~";
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(arg.default_value.is_none());
+
+        let yaml = "name: x\ndescription: d";
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(arg.default_value.is_none());
+    }
+}
