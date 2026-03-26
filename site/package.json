@@ -11,6 +11,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@takumi-rs/image-response": "^0.73.1",
     "fumadocs-core": "16.7.6",
     "fumadocs-mdx": "14.2.11",
     "fumadocs-ui": "16.7.6",
@@ -18,19 +19,19 @@
     "next": "16.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.5.0",
-    "@takumi-rs/image-response": "^0.73.1"
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.9",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/mdx": "^2.0.13",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "eslint": "^10.1.0",
+    "eslint-config-next": "16.2.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
-    "eslint-config-next": "16.2.1",
-    "eslint": "^10.1.0"
+    "typescript": "^6.0.2"
   }
 }
