@@ -2,6 +2,46 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+/* Smooth page transitions */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInSlow {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Docs page content fade-in */
+[data-docs-body] {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Sidebar items slide in */
+nav a {
+  transition: all 0.2s ease;
+}
+
+/* Card hover lift */
+a[class*="card"] {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+a[class*="card"]:hover {
+  transform: translateY(-2px);
+}
+
+/* TOC smooth transitions */
+[data-toc] a {
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Smooth scrollbar */
+* {
+  scroll-behavior: smooth;
+}
+
 .dark {
   --color-fd-background: hsl(0, 0%, 10%);
   --color-fd-foreground: hsl(0, 0%, 91%);
