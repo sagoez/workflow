@@ -1,6 +1,6 @@
 [package]
 name = "wf-cli"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Terminal-native parameterized workflow runner — define commands in YAML, resolve arguments interactively, and copy to clipboard"
 license = "MIT"
