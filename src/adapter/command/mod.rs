@@ -1,9 +1,6 @@
-use std::fs;
-
 use async_trait::async_trait;
 use chrono::Utc;
 use clipboard::ClipboardProvider;
-use inquire::Select;
 use tabled::{
     builder::Builder,
     settings::{Color, Modify, Style, object::Rows}
@@ -15,9 +12,9 @@ use crate::{
     adapter::{resolver::ArgumentResolver, storage::EventStoreType},
     domain::{
         command::{
-            CompleteWorkflowCommand, DiscoverWorkflowsCommand, DiscoverWorkflowsData, GetCurrentLanguageCommand,
-            GetCurrentStorageCommand, InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData,
-            ListAggregatesCommand, ListLanguagesCommand, ListWorkflowsCommand, PurgeStorageCommand,
+            CompleteWorkflowCommand, GetCurrentLanguageCommand,
+            GetCurrentStorageCommand,
+            ListAggregatesCommand, ListLanguagesCommand, ListWorkflowsCommand,
             RecordSyncResultCommand, ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData,
             SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
         },
@@ -25,18 +22,20 @@ use crate::{
         error::WorkflowError,
         event::{
             AggregateReplayedEvent, AvailableWorkflowsListedEvent, LanguageSetEvent, SyncRequestedEvent,
-            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowDiscoveredEvent, WorkflowEvent,
-            WorkflowSelectedEvent, WorkflowStartedEvent, WorkflowsSyncedEvent
+            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowEvent,
+            WorkflowStartedEvent
         },
-        state::{StateDisplay, WorkflowState},
-        workflow::Workflow
+        state::{StateDisplay, WorkflowState}
     },
     i18n::Language,
     port::{command::Command, git::CloneOptions},
     t, t_params
 };
 
-// TODO: Move to separate files
+pub mod discover;
+pub mod purge;
+pub mod select;
+pub mod sync_record;
 
 /// Macro to implement Command trait for WorkflowCommand enum
 /// Similar to the impl_event macro for WorkflowEvent
@@ -166,200 +165,6 @@ impl_command!(WorkflowCommand {
     ReplayAggregate(cmd),
     PurgeStorage(cmd)
 });
-
-#[async_trait]
-impl Command for DiscoverWorkflowsCommand {
-    type Error = WorkflowError;
-    type LoadedData = DiscoverWorkflowsData;
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        let workflows_dir = app_context.config.workflows_dir.clone();
-
-        if !workflows_dir.exists() {
-            return Ok(DiscoverWorkflowsData { workflows: vec![] });
-        }
-
-        // Run blocking I/O operations in a separate thread pool to avoid blocking the async runtime
-        let workflows = tokio::task::spawn_blocking(move || -> Result<Vec<Workflow>, WorkflowError> {
-            let entries = fs::read_dir(&workflows_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-            let mut workflows = Vec::new();
-
-            for entry in entries {
-                let entry = entry.map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-                let path = entry.path();
-
-                if path.is_file()
-                    && let Some(extension) = path.extension()
-                    && (extension == "yaml" || extension == "yml")
-                {
-                    let content = fs::read_to_string(&path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-
-                    let workflow: Workflow =
-                        serde_yaml::from_str(&content).map_err(|e| WorkflowError::Serialization(e.to_string()))?;
-
-                    workflows.push(workflow);
-                }
-            }
-
-            workflows.sort_by(|a, b| a.name.cmp(&b.name));
-            Ok(workflows)
-        })
-        .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to discover workflows: {}", e)))??;
-
-        Ok(DiscoverWorkflowsData { workflows })
-    }
-
-    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        loaded_data: &Self::LoadedData,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let mut events = Vec::new();
-
-        for workflow in &loaded_data.workflows {
-            let event = WorkflowDiscoveredEvent {
-                event_id:  Uuid::new_v4().to_string(),
-                timestamp: chrono::Utc::now(),
-                workflow:  workflow.clone(),
-                file_path: format!("{}.yaml", workflow.name) // TODO: store actual file path
-            };
-            events.push(WorkflowEvent::WorkflowDiscovered(event));
-        }
-
-        Ok(events)
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        _current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        // DiscoverWorkflowsCommand is a data loading command - no output needed
-        // Display is handled by ListWorkflowsCommand
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "discover-workflows"
-    }
-
-    fn description(&self) -> &'static str {
-        "Discovers available workflow files"
-    }
-
-    fn is_interactive(&self) -> bool {
-        false
-    }
-
-    fn is_mutating(&self) -> bool {
-        false
-    }
-}
-
-#[async_trait]
-impl Command for InteractivelySelectWorkflowCommand {
-    type Error = WorkflowError;
-    type LoadedData = InteractivelySelectWorkflowData;
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        if let WorkflowState::WorkflowsDiscovered(state) = current_state {
-            let workflows: Vec<Workflow> = state.discovered_workflows.to_vec();
-
-            let selected_workflow =
-                Select::new(&t!("select_workflow"), workflows.clone()).with_page_size(10).prompt().map_err(|e| {
-                    WorkflowError::Validation(t_params!("error_selection_failed", &["workflow", &e.to_string()]))
-                })?;
-
-            Ok(InteractivelySelectWorkflowData { workflow: selected_workflow.clone() })
-        } else {
-            Err(WorkflowError::Validation(t!("error_workflows_not_discovered_yet")))
-        }
-    }
-
-    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        loaded_data: &Self::LoadedData,
-        context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let event = WorkflowSelectedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: Utc::now(),
-            workflow:  loaded_data.workflow.clone(),
-            user:      context.workflow_context.user.clone()
-        };
-
-        Ok(vec![WorkflowEvent::WorkflowSelected(event)])
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowSelected(state) => {
-                let workflow = &state.selected_workflow;
-                println!("{}", t_params!("cli_selected_workflow", &[&workflow.name]));
-                println!("{}", t_params!("cli_selected_workflow_description", &[&workflow.description]));
-                if !workflow.arguments.is_empty() {
-                    println!(
-                        "{}",
-                        t_params!("cli_selected_workflow_arguments", &[&workflow.arguments.len().to_string()])
-                    );
-                }
-            }
-            _ => {
-                println!("{}", t!("error_no_workflow_selected"));
-            }
-        }
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "select-workflow"
-    }
-
-    fn description(&self) -> &'static str {
-        "Selects and loads a specific workflow"
-    }
-
-    fn is_interactive(&self) -> bool {
-        false
-    }
-
-    fn is_mutating(&self) -> bool {
-        true
-    }
-}
 
 #[async_trait]
 impl Command for ListWorkflowsCommand {
@@ -814,115 +619,6 @@ impl Command for SyncWorkflowsCommand {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct RecordSyncResultData {
-    pub remote_url:   String,
-    pub branch:       String,
-    pub commit_id:    String,
-    pub synced_count: u32
-}
-
-#[async_trait]
-impl Command for RecordSyncResultCommand {
-    type Error = WorkflowError;
-    type LoadedData = RecordSyncResultData;
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        // Validate that we can only record sync results after a sync was requested
-        let sync_state = match current_state {
-            WorkflowState::SyncRequested(sync_state) => sync_state,
-            _ => {
-                return Err(WorkflowError::Validation("Cannot record sync results: no sync was requested".to_string()));
-            }
-        };
-
-        let workflows_dir = &app_context.config.workflows_dir;
-
-        // Use the commit ID passed from the SyncWorkflowsCommand
-        let commit_id = self.commit_id.clone();
-
-        let synced_count = if workflows_dir.exists() {
-            fs::read_dir(workflows_dir)
-                .map_err(|e| WorkflowError::FileSystem(e.to_string()))?
-                .filter_map(|entry| {
-                    let entry = entry.ok()?;
-                    let path = entry.path();
-                    if path.is_file()
-                        && let Some(ext) = path.extension()
-                        && (ext == "yaml" || ext == "yml")
-                    {
-                        return Some(());
-                    }
-                    None
-                })
-                .count() as u32
-        } else {
-            0
-        };
-
-        Ok(RecordSyncResultData {
-            remote_url: sync_state.remote_url.clone(),
-            branch: sync_state.branch.clone(),
-            commit_id,
-            synced_count
-        })
-    }
-
-    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        loaded_data: &Self::LoadedData,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let event = WorkflowsSyncedEvent {
-            event_id:     Uuid::new_v4().to_string(),
-            timestamp:    chrono::Utc::now(),
-            remote_url:   loaded_data.remote_url.clone(),
-            branch:       loaded_data.branch.clone(),
-            commit_id:    loaded_data.commit_id.clone(),
-            synced_count: loaded_data.synced_count
-        };
-
-        Ok(vec![WorkflowEvent::WorkflowsSynced(event)])
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowsSynced(state) => {
-                println!("🔄 {}", t_params!("cli_synced_workflows", &[&state.remote_url]));
-                println!("🌿 {}", t_params!("cli_synced_branch", &[&state.branch]));
-                println!("📝 {}", t_params!("cli_synced_commit", &[&state.commit_id]));
-                println!("📁 {}", t_params!("cli_synced_count", &[&state.synced_count.to_string()]));
-            }
-            _ => {
-                println!("{}", t!("error_no_workflows_synced"));
-            }
-        }
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "record-sync-result"
-    }
-}
-
 #[async_trait]
 impl Command for SetLanguageCommand {
     type Error = WorkflowError;
@@ -1295,87 +991,6 @@ impl Command for ListAggregatesCommand {
 
     fn is_mutating(&self) -> bool {
         false
-    }
-}
-
-#[async_trait]
-impl Command for PurgeStorageCommand {
-    type Error = WorkflowError;
-    type LoadedData = ();
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        Ok(())
-    }
-
-    fn validate(&self, _loaded: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        _loaded: &Self::LoadedData,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        Ok(vec![])
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        _current_state: &WorkflowState,
-        _context: &EngineContext,
-        app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        use crate::adapter::storage::EventStoreType;
-
-        if app_context.config.storage_type != EventStoreType::RocksDb {
-            println!("{}", t!("storage_purge_only_rocksdb"));
-            return Ok(());
-        }
-
-        let db_path = &app_context.config.database_path;
-
-        drop(app_context.event_store.clone());
-
-        tokio::task::spawn_blocking({
-            let db_path = db_path.clone();
-            move || -> Result<(), WorkflowError> {
-                if db_path.exists() {
-                    std::fs::remove_dir_all(&db_path)
-                        .map_err(|e| WorkflowError::FileSystem(format!("Failed to remove database: {}", e)))?;
-                }
-                Ok(())
-            }
-        })
-        .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to purge storage: {}", e)))??;
-
-        println!("{}", t!("storage_purge_success"));
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "purge_storage"
-    }
-
-    fn description(&self) -> &'static str {
-        "Purge all data from storage"
-    }
-
-    fn is_interactive(&self) -> bool {
-        false
-    }
-
-    fn is_mutating(&self) -> bool {
-        true
     }
 }
 
