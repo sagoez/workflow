@@ -9,20 +9,20 @@ use uuid::Uuid;
 
 use crate::{
     AppContext,
-    adapter::{resolver::ArgumentResolver, storage::EventStoreType},
+    adapter::storage::EventStoreType,
     domain::{
         command::{
             CompleteWorkflowCommand, GetCurrentLanguageCommand,
             GetCurrentStorageCommand,
             ListAggregatesCommand, ListLanguagesCommand,
-            RecordSyncResultCommand, ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData,
+            RecordSyncResultCommand, ReplayAggregateCommand,
             SetLanguageCommand, SetStorageCommand, SyncWorkflowsCommand, WorkflowCommand
         },
         engine::EngineContext,
         error::WorkflowError,
         event::{
             AggregateReplayedEvent, LanguageSetEvent, SyncRequestedEvent,
-            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowEvent
+            WorkflowCompletedEvent, WorkflowEvent
         },
         state::{StateDisplay, WorkflowState}
     },
@@ -34,8 +34,9 @@ use crate::{
 pub mod discover;
 pub mod list;
 pub mod purge;
-pub mod start;
+pub mod resolve;
 pub mod select;
+pub mod start;
 pub mod sync_record;
 
 /// Macro to implement Command trait for WorkflowCommand enum
@@ -166,131 +167,6 @@ impl_command!(WorkflowCommand {
     ReplayAggregate(cmd),
     PurgeStorage(cmd)
 });
-
-#[async_trait]
-impl Command for ResolveArgumentsCommand {
-    type Error = WorkflowError;
-    type LoadedData = ResolveArgumentsData;
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        let workflow = match current_state {
-            WorkflowState::WorkflowStarted(state) => state.selected_workflow.clone(),
-            _ => return Err(WorkflowError::Validation(t!("error_no_workflow_started_to_resolve_arguments")))
-        };
-
-        let resolved_arguments =
-            ArgumentResolver::resolve_workflow_arguments(
-                &workflow.arguments,
-                &*app_context.prompt,
-                &*app_context.executor
-            ).await.map_err(|e| {
-                WorkflowError::Validation(t_params!("error_failed_to_resolve_arguments", &[&e.to_string()]))
-            })?;
-
-        Ok(ResolveArgumentsData { workflow, resolved_arguments })
-    }
-
-    fn validate(&self, loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        for arg in &loaded_data.workflow.arguments {
-            if !loaded_data.resolved_arguments.contains_key(&arg.name) {
-                return Err(WorkflowError::Validation(t_params!("error_argument_not_resolved", &[&arg.name])));
-            }
-        }
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        loaded_data: &Self::LoadedData,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowStarted(_) => {
-                let event = WorkflowArgumentsResolvedEvent {
-                    event_id:  Uuid::new_v4().to_string(),
-                    timestamp: Utc::now(),
-                    arguments: loaded_data.resolved_arguments.clone()
-                };
-
-                Ok(vec![WorkflowEvent::WorkflowArgumentsResolved(event)])
-            }
-            _ => Err(WorkflowError::Validation(t!("error_no_workflow_execution_in_progress")))
-        }
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowArgumentsResolved(state) => {
-                let workflow = &state.selected_workflow;
-                println!("{}", t_params!("cli_resolved_arguments_for_workflow", &[&workflow.name]));
-
-                for (key, value) in &state.resolved_arguments {
-                    println!("  {} = {}", key, value);
-                }
-
-                // Use default Tera instance since we only need render_str (no file templates needed)
-                let mut tera = tera::Tera::default();
-                let mut context = tera::Context::new();
-
-                for (key, value) in &state.resolved_arguments {
-                    context.insert(key, value);
-                }
-
-                let rendered_command = tera.render_str(&workflow.command, &context).map_err(|e| {
-                    WorkflowError::Validation(t_params!("error_failed_to_render_command_template", &[&e.to_string()]))
-                })?;
-
-                println!("{}", t!("cli_generated_command"));
-                println!("{}", rendered_command);
-
-                match copy_to_clipboard(&rendered_command) {
-                    Ok(()) => {
-                        println!("{}", t!("cli_command_copied_to_clipboard"));
-                        println!("{}", t!("cli_command_can_now_be_pasted_and_executed_in_terminal"));
-                    }
-                    Err(e) => {
-                        println!("{}", t_params!("cli_failed_to_copy_to_clipboard", &[&e.to_string()]));
-                        println!("{}", t!("cli_command_can_now_be_pasted_and_executed_in_terminal"));
-                    }
-                }
-            }
-            _ => {
-                println!("{}", t!("error_no_arguments_resolved"));
-            }
-        }
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "resolve-arguments"
-    }
-
-    fn description(&self) -> &'static str {
-        "Interactively resolves workflow arguments with dynamic resolution"
-    }
-
-    fn is_interactive(&self) -> bool {
-        true // This command shows interactive prompts and menus
-    }
-
-    fn is_mutating(&self) -> bool {
-        true
-    }
-}
 
 #[async_trait]
 impl Command for CompleteWorkflowCommand {
