@@ -1,5 +1,8 @@
 # Workflow CLI
 
+[![wf::build](https://github.com/sagoez/workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/sagoez/workflow/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/wf-cli?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjMyIiB5PSI0NCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwtYXBwbGUtc3lzdGVtLHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc3R5bGU9Iml0YWxpYyIgZm9udC1zaXplPSIzMiIgZmlsbD0iIzAwMCI+d2Y8L3RleHQ+PC9zdmc+&label=crates.io)](https://crates.io/crates/wf-cli)
+
 A terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows). Define parameterized commands in YAML, resolve arguments interactively, and get the final command copied to your clipboard — ready to paste.
 
 > Built with event sourcing, CQRS, hexagonal architecture, and an actor model — because I wanted to learn all of that and needed an excuse to build something. You could do this in 50 lines of bash. But your bash script wouldn't have an actor model.
