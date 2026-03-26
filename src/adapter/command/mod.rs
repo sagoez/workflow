@@ -12,7 +12,7 @@ use crate::{
     adapter::storage::EventStoreType,
     domain::{
         command::{
-            CompleteWorkflowCommand, GetCurrentLanguageCommand,
+            GetCurrentLanguageCommand,
             GetCurrentStorageCommand,
             ListAggregatesCommand, ListLanguagesCommand,
             RecordSyncResultCommand, ReplayAggregateCommand,
@@ -22,7 +22,7 @@ use crate::{
         error::WorkflowError,
         event::{
             AggregateReplayedEvent, LanguageSetEvent, SyncRequestedEvent,
-            WorkflowCompletedEvent, WorkflowEvent
+            WorkflowEvent
         },
         state::{StateDisplay, WorkflowState}
     },
@@ -31,6 +31,7 @@ use crate::{
     t, t_params
 };
 
+pub mod complete;
 pub mod discover;
 pub mod list;
 pub mod purge;
@@ -167,78 +168,6 @@ impl_command!(WorkflowCommand {
     ReplayAggregate(cmd),
     PurgeStorage(cmd)
 });
-
-#[async_trait]
-impl Command for CompleteWorkflowCommand {
-    type Error = WorkflowError;
-    type LoadedData = ();
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        Ok(())
-    }
-
-    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowArgumentsResolved(_) => {
-                let event = WorkflowCompletedEvent { event_id: Uuid::new_v4().to_string(), timestamp: Utc::now() };
-
-                Ok(vec![WorkflowEvent::WorkflowCompleted(event)])
-            }
-            _ => Err(WorkflowError::Validation(t!("error_no_workflow_ready_to_complete")))
-        }
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowCompleted(state) => {
-                let workflow = &state.completed_workflow;
-                println!("{}", t_params!("cli_completed_workflow", &[&workflow.name]));
-            }
-            _ => {
-                println!("{}", t!("error_no_workflow_completed"));
-            }
-        }
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "complete-workflow"
-    }
-
-    fn description(&self) -> &'static str {
-        "Marks the current workflow as completed"
-    }
-
-    fn is_interactive(&self) -> bool {
-        false
-    }
-
-    fn is_mutating(&self) -> bool {
-        true
-    }
-}
 
 /// Helper function to copy text to clipboard
 fn copy_to_clipboard(text: &str) -> Result<(), WorkflowError> {
