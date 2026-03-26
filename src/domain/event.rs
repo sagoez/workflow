@@ -210,3 +210,88 @@ pub struct AggregateReplayedEvent {
     pub aggregate_id: String,
     pub events_count: usize
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_workflow() -> Workflow {
+        Workflow {
+            name:        "w".to_string(),
+            description: "d".to_string(),
+            command:     "c".to_string(),
+            arguments:   vec![],
+            tags:        vec![],
+            source_url:  None,
+            author:      None,
+            author_url:  None,
+            shells:      vec![]
+        }
+    }
+
+    #[test]
+    fn workflow_event_display_all_variants() {
+        let ts = Utc::now();
+        let id = "ev-1".to_string();
+        let wf = test_workflow();
+
+        let cases: Vec<(WorkflowEvent, &str)> = vec![
+            (WorkflowEvent::WorkflowDiscovered(WorkflowDiscoveredEvent { event_id: id.clone(), timestamp: ts, workflow: wf.clone(), file_path: "f".to_string() }), "WorkflowDiscovered"),
+            (WorkflowEvent::WorkflowSelected(WorkflowSelectedEvent { event_id: id.clone(), timestamp: ts, workflow: wf.clone(), user: "u".to_string() }), "WorkflowSelected"),
+            (WorkflowEvent::WorkflowStarted(WorkflowStartedEvent { event_id: id.clone(), timestamp: ts, user: "u".to_string(), hostname: "h".to_string(), execution_id: "e".to_string() }), "WorkflowStarted"),
+            (WorkflowEvent::WorkflowArgumentsResolved(WorkflowArgumentsResolvedEvent { event_id: id.clone(), timestamp: ts, arguments: HashMap::new() }), "WorkflowArgumentsResolved"),
+            (WorkflowEvent::WorkflowCompleted(WorkflowCompletedEvent { event_id: id.clone(), timestamp: ts }), "WorkflowCompleted"),
+            (WorkflowEvent::AvailableWorkflowsListed(AvailableWorkflowsListedEvent { event_id: id.clone(), timestamp: ts, workflows: vec![] }), "AvailableWorkflowsListed"),
+            (WorkflowEvent::SyncRequested(SyncRequestedEvent { event_id: id.clone(), timestamp: ts, remote_url: "r".to_string(), branch: "b".to_string(), ssh_key: None }), "SyncRequested"),
+            (WorkflowEvent::WorkflowsSynced(WorkflowsSyncedEvent { event_id: id.clone(), timestamp: ts, remote_url: "r".to_string(), branch: "b".to_string(), commit_id: "c".to_string(), synced_count: 0 }), "WorkflowsSynced"),
+            (WorkflowEvent::LanguageSet(LanguageSetEvent { event_id: id.clone(), timestamp: ts, language: "en".to_string() }), "LanguageSet"),
+            (WorkflowEvent::AggregateReplayed(AggregateReplayedEvent { event_id: id.clone(), timestamp: ts, aggregate_id: "a".to_string(), events_count: 0 }), "AggregateReplayed"),
+        ];
+
+        for (event, expected) in cases {
+            assert_eq!(format!("{}", event), expected);
+        }
+    }
+
+    #[test]
+    fn event_metadata_builder() {
+        let meta = EventMetadata::new("test-event")
+            .with_aggregate_id("agg-1")
+            .with_correlation_id("corr-1")
+            .with_session_id("sess-1");
+
+        assert_eq!(meta.event_type, "test-event");
+        assert_eq!(meta.aggregate_id, Some("agg-1".to_string()));
+        assert_eq!(meta.correlation_id, Some("corr-1".to_string()));
+        assert_eq!(meta.session_id, Some("sess-1".to_string()));
+        assert!(meta.causation_id.is_none());
+        assert!(meta.user_id.is_none());
+        assert!(!meta.event_id.is_empty());
+    }
+
+    #[test]
+    fn event_metadata_defaults() {
+        let meta = EventMetadata::new("evt");
+        assert!(meta.aggregate_id.is_none());
+        assert!(meta.correlation_id.is_none());
+        assert!(meta.causation_id.is_none());
+        assert!(meta.user_id.is_none());
+        assert!(meta.session_id.is_none());
+    }
+
+    #[test]
+    fn aggregate_event_serialization_roundtrip() {
+        let ae = AggregateEvent {
+            aggregate_id: Some("agg-1".to_string()),
+            data: WorkflowEvent::WorkflowCompleted(WorkflowCompletedEvent {
+                event_id:  "ev-1".to_string(),
+                timestamp: Utc::now()
+            }),
+            metadata: Some(EventMetadata::new("workflow-completed"))
+        };
+
+        let json = serde_json::to_string(&ae).unwrap();
+        let deserialized: AggregateEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.aggregate_id, Some("agg-1".to_string()));
+    }
+}
