@@ -1,3 +1,17 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+.dark {
+  --color-fd-background: hsl(0, 0%, 10%);
+  --color-fd-foreground: hsl(0, 0%, 91%);
+  --color-fd-muted: hsl(0, 0%, 14%);
+  --color-fd-muted-foreground: hsla(0, 0%, 70%, 0.8);
+  --color-fd-popover: hsl(0, 0%, 14%);
+  --color-fd-popover-foreground: hsl(0, 0%, 87%);
+  --color-fd-card: hsl(0, 0%, 13%);
+  --color-fd-card-foreground: hsl(0, 0%, 98%);
+  --color-fd-border: hsla(0, 0%, 40%, 20%);
+  --color-fd-secondary: hsl(0, 0%, 16%);
+  --color-fd-accent: hsla(0, 0%, 40%, 30%);
+}
