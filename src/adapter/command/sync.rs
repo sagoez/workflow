@@ -27,7 +27,7 @@ pub fn prepare_sync_data(
     ssh_key: Option<&str>
 ) -> SyncWorkflowsData {
     let remote_url = remote_url
-        .unwrap_or("git@github.com:sagoez/workflow-vault.git")
+        .unwrap_or("https://github.com/sagoez/workflow-vault.git")
         .to_string();
 
     SyncWorkflowsData {
@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn prepare_data_uses_default_url_when_none() {
         let data = prepare_sync_data(None, "main", None);
-        assert_eq!(data.remote_url, "git@github.com:sagoez/workflow-vault.git");
+        assert_eq!(data.remote_url, "https://github.com/sagoez/workflow-vault.git");
         assert_eq!(data.branch, "main");
         assert!(data.ssh_key.is_none());
     }
