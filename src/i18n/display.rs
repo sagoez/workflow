@@ -112,3 +112,94 @@ pub fn t_params_lang(key: &str, params: &[&str], lang: Language) -> String {
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::i18n::Language;
+
+    fn test_manager() -> TextManager {
+        let mut cache = HashMap::new();
+        let mut en = HashMap::new();
+        en.insert("greeting".to_string(), "Hello {0}!".to_string());
+        en.insert("multi".to_string(), "{0} and {1}".to_string());
+        en.insert("plain".to_string(), "No params".to_string());
+        cache.insert(Language::English, en);
+
+        let mut es = HashMap::new();
+        es.insert("greeting".to_string(), "Hola {0}!".to_string());
+        cache.insert(Language::Spanish, es);
+
+        TextManager {
+            current_language: Language::English,
+            cache
+        }
+    }
+
+    #[test]
+    fn get_returns_translated_text() {
+        let tm = test_manager();
+        assert_eq!(tm.get("plain"), "No params");
+    }
+
+    #[test]
+    fn get_returns_key_for_missing_translation() {
+        let tm = test_manager();
+        assert_eq!(tm.get("nonexistent_key"), "nonexistent_key");
+    }
+
+    #[test]
+    fn get_in_lang_returns_specific_language() {
+        let tm = test_manager();
+        assert_eq!(tm.get_in_lang("greeting", Language::Spanish), "Hola {0}!");
+    }
+
+    #[test]
+    fn get_in_lang_falls_back_to_key() {
+        let tm = test_manager();
+        assert_eq!(tm.get_in_lang("missing", Language::Spanish), "missing");
+    }
+
+    #[test]
+    fn set_language_changes_current() {
+        let mut tm = test_manager();
+        assert_eq!(tm.current_language(), Language::English);
+        tm.set_language(Language::Spanish);
+        assert_eq!(tm.current_language(), Language::Spanish);
+        assert_eq!(tm.get("greeting"), "Hola {0}!");
+    }
+
+    #[test]
+    fn param_substitution_single() {
+        let text = "Hello {0}!".to_string();
+        let mut result = text;
+        for (i, param) in ["World"].iter().enumerate() {
+            let placeholder = format!("{{{}}}", i);
+            result = result.replace(&placeholder, param);
+        }
+        assert_eq!(result, "Hello World!");
+    }
+
+    #[test]
+    fn param_substitution_multiple() {
+        let text = "{0} and {1}".to_string();
+        let mut result = text;
+        for (i, param) in ["Alice", "Bob"].iter().enumerate() {
+            let placeholder = format!("{{{}}}", i);
+            result = result.replace(&placeholder, param);
+        }
+        assert_eq!(result, "Alice and Bob");
+    }
+
+    #[test]
+    fn param_substitution_no_params() {
+        let text = "No params".to_string();
+        let mut result = text.clone();
+        let params: &[&str] = &[];
+        for (i, param) in params.iter().enumerate() {
+            let placeholder = format!("{{{}}}", i);
+            result = result.replace(&placeholder, param);
+        }
+        assert_eq!(result, "No params");
+    }
+}
