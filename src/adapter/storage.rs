@@ -184,11 +184,6 @@ mod tests {
                 workflow:  workflow.clone(),
                 file_path: "test.yaml".to_string()
             }),
-            WorkflowEvent::AvailableWorkflowsListed(AvailableWorkflowsListedEvent {
-                event_id:  Uuid::new_v4().to_string(),
-                timestamp: Utc::now(),
-                workflows: vec!["test-workflow".to_string()]
-            }),
             WorkflowEvent::WorkflowSelected(WorkflowSelectedEvent {
                 event_id:  Uuid::new_v4().to_string(),
                 timestamp: Utc::now(),
@@ -203,7 +198,7 @@ mod tests {
         // Retrieve state
         let state = store.get_current_state("test_session").await.unwrap();
 
-        // Should be in WorkflowSelected state after both events
+        // Should be in WorkflowSelected state after discover + select
         match state {
             WorkflowState::WorkflowSelected(selected_state) => {
                 assert_eq!(selected_state.discovered_workflows.len(), 1);
@@ -237,15 +232,7 @@ mod tests {
             _ => panic!("Expected WorkflowsDiscovered state")
         }
 
-        // 2. List workflows
-        let list_event = WorkflowEvent::AvailableWorkflowsListed(AvailableWorkflowsListedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: Utc::now(),
-            workflows: vec!["test-workflow".to_string()]
-        });
-        store.store_events(session_id, &[list_event]).await.unwrap();
-
-        // 3. Select workflow
+        // 2. Select workflow
         let select_event = WorkflowEvent::WorkflowSelected(WorkflowSelectedEvent {
             event_id:  Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
