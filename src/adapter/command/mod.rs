@@ -16,14 +16,13 @@ use crate::{
             GetCurrentStorageCommand,
             ListAggregatesCommand, ListLanguagesCommand,
             RecordSyncResultCommand, ReplayAggregateCommand, ResolveArgumentsCommand, ResolveArgumentsData,
-            SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, SyncWorkflowsCommand, WorkflowCommand
+            SetLanguageCommand, SetStorageCommand, SyncWorkflowsCommand, WorkflowCommand
         },
         engine::EngineContext,
         error::WorkflowError,
         event::{
             AggregateReplayedEvent, LanguageSetEvent, SyncRequestedEvent,
-            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowEvent,
-            WorkflowStartedEvent
+            WorkflowArgumentsResolvedEvent, WorkflowCompletedEvent, WorkflowEvent
         },
         state::{StateDisplay, WorkflowState}
     },
@@ -35,6 +34,7 @@ use crate::{
 pub mod discover;
 pub mod list;
 pub mod purge;
+pub mod start;
 pub mod select;
 pub mod sync_record;
 
@@ -166,86 +166,6 @@ impl_command!(WorkflowCommand {
     ReplayAggregate(cmd),
     PurgeStorage(cmd)
 });
-
-#[async_trait]
-impl Command for StartWorkflowCommand {
-    type Error = WorkflowError;
-    type LoadedData = ();
-
-    async fn load(
-        &self,
-        _context: &EngineContext,
-        _app_context: &AppContext,
-        _current_state: &WorkflowState
-    ) -> Result<Self::LoadedData, Self::Error> {
-        Ok(())
-    }
-
-    fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    async fn emit(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        context: &EngineContext,
-        _app_context: &AppContext,
-        current_state: &WorkflowState
-    ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowSelected(_) => {
-                let event = WorkflowStartedEvent {
-                    event_id:     Uuid::new_v4().to_string(),
-                    timestamp:    Utc::now(),
-                    user:         context.workflow_context.user.clone(),
-                    hostname:     context.workflow_context.hostname.clone(),
-                    execution_id: Uuid::new_v4().to_string()
-                };
-
-                Ok(vec![WorkflowEvent::WorkflowStarted(event)])
-            }
-            _ => Err(WorkflowError::Validation(t!("error_no_workflow_selected_to_start")))
-        }
-    }
-
-    async fn effect(
-        &self,
-        _loaded_data: &Self::LoadedData,
-        _previous_state: &WorkflowState,
-        current_state: &WorkflowState,
-        _context: &EngineContext,
-        _app_context: &AppContext
-    ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowStarted(state) => {
-                let workflow = &state.selected_workflow;
-                println!("{}", t_params!("cli_starting_workflow", &[&workflow.name]));
-                println!("{}", t_params!("cli_starting_workflow_description", &[&workflow.description]));
-                println!("{}", t_params!("cli_starting_workflow_command", &[&workflow.command]));
-            }
-            _ => {
-                println!("{}", t!("error_no_workflow_started"));
-            }
-        }
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "start-workflow"
-    }
-
-    fn description(&self) -> &'static str {
-        "Starts the selected workflow"
-    }
-
-    fn is_interactive(&self) -> bool {
-        false
-    }
-
-    fn is_mutating(&self) -> bool {
-        true
-    }
-}
 
 #[async_trait]
 impl Command for ResolveArgumentsCommand {
