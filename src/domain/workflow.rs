@@ -99,7 +99,11 @@ pub struct WorkflowArgument {
     /// For Enum type: static list of predefined options
     pub enum_variants:      Option<Vec<String>>,
     /// For Enum type: name of the argument to reference for dynamic resolution in enum_command
-    pub dynamic_resolution: Option<String>
+    pub dynamic_resolution: Option<String>,
+    /// For MultiEnum type: minimum number of selections required
+    pub min_selections:     Option<usize>,
+    /// For MultiEnum type: maximum number of selections allowed
+    pub max_selections:     Option<usize>
 }
 
 /// Returns the default argument type when not specified in YAML.
@@ -121,6 +125,8 @@ pub enum ArgumentType {
     Text,
     /// Selection from dynamically generated list (via command execution)
     Enum,
+    /// Multi-selection from a list, values joined with comma
+    MultiEnum,
     /// Numeric input with validation
     Number,
     /// Boolean true/false selection
