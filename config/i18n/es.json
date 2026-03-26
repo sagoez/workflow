@@ -150,5 +150,6 @@
     "enum_enter_custom_value": "Ingrese valor personalizado para {0}",
     "prompt_select": "Seleccione {0}",
     "prompt_enter": "Ingrese {0}",
-    "cli_executing_command_short": "Ejecutando: {0}"
+    "cli_executing_command_short": "Ejecutando: {0}",
+    "prompt_multi_select": "Seleccione uno o más {0}"
 }
