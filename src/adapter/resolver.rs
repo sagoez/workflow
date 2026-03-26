@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use inquire::{Select, Text};
+use inquire::{MultiSelect, Select, Text};
 use tokio::process::Command as TokioCommand;
 
 use crate::{
@@ -46,6 +46,15 @@ impl ArgumentResolver {
                     Self::resolve_static_enum_argument(arg, enum_variants)
                 } else if let (Some(enum_command), Some(_enum_name)) = (&arg.enum_command, &arg.enum_name) {
                     Self::resolve_dynamic_enum_argument(arg, enum_command, current_values).await
+                } else {
+                    Err(WorkflowError::Validation(t_params!("error_enum_argument_missing_configuration", &[&arg.name])))
+                }
+            }
+            ArgumentType::MultiEnum => {
+                if let Some(enum_variants) = &arg.enum_variants {
+                    Self::resolve_static_multi_enum_argument(arg, enum_variants)
+                } else if let (Some(enum_command), Some(_enum_name)) = (&arg.enum_command, &arg.enum_name) {
+                    Self::resolve_dynamic_multi_enum_argument(arg, enum_command, current_values).await
                 } else {
                     Err(WorkflowError::Validation(t_params!("error_enum_argument_missing_configuration", &[&arg.name])))
                 }
@@ -135,6 +144,91 @@ impl ArgumentResolver {
         })?;
 
         if selection == custom_option { Self::prompt_for_custom_value(&arg.name) } else { Ok(selection) }
+    }
+
+    /// Resolve multi-enum argument with static variants
+    fn resolve_static_multi_enum_argument(arg: &WorkflowArgument, variants: &[String]) -> Result<String, WorkflowError> {
+        let prompt = t_params!("prompt_multi_select", &[&arg.name]);
+        let options: Vec<String> = variants.to_vec();
+
+        let mut multi_select = MultiSelect::new(&prompt, options).with_page_size(10);
+
+        if let Some(min) = arg.min_selections {
+            let min_val = min;
+            multi_select = multi_select.with_validator(move |selections: &[inquire::list_option::ListOption<&String>]| {
+                if selections.len() < min_val {
+                    Ok(inquire::validator::Validation::Invalid(
+                        format!("Select at least {} item(s)", min_val).into()
+                    ))
+                } else {
+                    Ok(inquire::validator::Validation::Valid)
+                }
+            });
+        }
+
+        if let Some(max) = arg.max_selections {
+            let max_val = max;
+            multi_select = multi_select.with_validator(move |selections: &[inquire::list_option::ListOption<&String>]| {
+                if selections.len() > max_val {
+                    Ok(inquire::validator::Validation::Invalid(
+                        format!("Select at most {} item(s)", max_val).into()
+                    ))
+                } else {
+                    Ok(inquire::validator::Validation::Valid)
+                }
+            });
+        }
+
+        let selections = multi_select.prompt().map_err(|e| {
+            WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
+        })?;
+
+        Ok(selections.join(","))
+    }
+
+    /// Resolve multi-enum argument with dynamic command execution
+    async fn resolve_dynamic_multi_enum_argument(
+        arg: &WorkflowArgument,
+        enum_command: &str,
+        current_values: &HashMap<String, String>
+    ) -> Result<String, WorkflowError> {
+        let options = Self::execute_enum_command(arg, enum_command, current_values).await?;
+
+        let prompt = t_params!("prompt_multi_select", &[&arg.name]);
+
+        let mut multi_select = MultiSelect::new(&prompt, options).with_page_size(10);
+
+        if let Some(min) = arg.min_selections {
+            let min_val = min;
+            multi_select = multi_select.with_validator(move |selections: &[inquire::list_option::ListOption<&String>]| {
+                if selections.len() < min_val {
+                    Ok(inquire::validator::Validation::Invalid(
+                        format!("Select at least {} item(s)", min_val).into()
+                    ))
+                } else {
+                    Ok(inquire::validator::Validation::Valid)
+                }
+            });
+        }
+
+        if let Some(max) = arg.max_selections {
+            let max_val = max;
+            multi_select = multi_select.with_validator(move |selections: &[inquire::list_option::ListOption<&String>]| {
+                if selections.len() > max_val {
+                    Ok(inquire::validator::Validation::Invalid(
+                        format!("Select at most {} item(s)", max_val).into()
+                    ))
+                } else {
+                    Ok(inquire::validator::Validation::Valid)
+                }
+            });
+        }
+
+        let selections = multi_select.prompt().map_err(|e| {
+            WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
+        })?;
+
+        Ok(selections.join(","))
     }
 
     /// Resolve simple text/number/boolean argument
