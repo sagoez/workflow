@@ -151,7 +151,7 @@ async fn submit_command_to_actor_system(
     match call(
         guardian_ref,
         |reply| GuardianMessage::SubmitCommand { command, context: Box::new(context), reply },
-        Some(std::time::Duration::from_secs(30))
+        Some(std::time::Duration::from_secs(300))
     )
     .await
     {

@@ -150,7 +150,7 @@ impl WorkflowManager {
         match call(
             &processor_ref,
             |reply| CommandProcessorMessage::ProcessCommand { command: command.clone(), reply },
-            Some(std::time::Duration::from_secs(30))
+            Some(std::time::Duration::from_secs(300))
         )
         .await
         {
@@ -167,7 +167,7 @@ impl WorkflowManager {
             Ok(CallResult::Timeout) => {
                 event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
                        session_id = %session_id, message = "call_timeout");
-                return Err(ActorProcessingErr::from(t_params!("error_command_timeout", &[&"30 seconds"])));
+                return Err(ActorProcessingErr::from(t_params!("error_command_timeout", &[&"5 minutes"])));
             }
             Ok(CallResult::SenderError) => {
                 event!(Level::ERROR, event = workflow_manager::COMMAND_SUBMITTED,
