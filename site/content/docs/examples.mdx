@@ -1,0 +1,166 @@
+---
+title: Examples
+description: Real-world workflow examples with dynamic resolution, chaining, and multi-select
+---
+
+## Docker Compose — Dynamic Service List
+
+The `service` argument depends on `compose_file`. Change the file, get a different list of services.
+
+```yaml
+name: "Restart Docker Service"
+description: "Stop, rebuild, and restart a specific docker-compose service"
+command: "docker-compose -f {{compose_file}} up -d --build {{service}}"
+tags: ["docker", "devops"]
+
+arguments:
+  - name: compose_file
+    description: "Path to docker-compose file"
+    default_value: "docker-compose.yml"
+
+  - name: service
+    arg_type: Enum
+    description: "Service to restart"
+    enum_command: "docker-compose -f {{compose_file}} config --services"
+    dynamic_resolution: "compose_file"
+```
+
+`dynamic_resolution: "compose_file"` tells `wf` to resolve `compose_file` first, then substitute its value into `enum_command` before running it.
+
+---
+
+## SSH — Static Enum with Defaults
+
+A simple workflow with a server picker and optional port forwarding.
+
+```yaml
+name: "SSH Connect"
+description: "SSH into a server with optional port forwarding"
+command: "ssh -i {{key}} {{user}}@{{host}} {{port_forward}}"
+tags: ["ssh", "remote"]
+
+arguments:
+  - name: key
+    description: "Path to SSH key"
+    default_value: "~/.ssh/id_rsa"
+
+  - name: user
+    description: "Remote username"
+    default_value: "ubuntu"
+
+  - name: host
+    arg_type: Enum
+    description: "Server to connect to"
+    enum_variants:
+      - "prod-api-1.example.com"
+      - "prod-api-2.example.com"
+      - "staging.example.com"
+
+  - name: port_forward
+    description: "Port forwarding flags (leave empty for none)"
+    default_value: ""
+```
+
+---
+
+## Kubernetes — 3-Level Chained Resolution
+
+This chains three levels of dynamic resolution: namespace → pod → container.
+
+```yaml
+name: "K8s Pod Exec"
+description: "Exec into a pod in a specific namespace and container"
+command: "kubectl exec -it {{pod}} -n {{namespace}} -c {{container}} -- {{shell}}"
+tags: ["kubernetes", "debugging"]
+
+arguments:
+  - name: namespace
+    arg_type: Enum
+    description: "Kubernetes namespace"
+    enum_command: "kubectl get namespaces --no-headers | awk '{print $1}'"
+
+  - name: pod
+    arg_type: Enum
+    description: "Pod to exec into"
+    enum_command: "kubectl get pods -n {{namespace}} --no-headers | awk '{print $1}'"
+    dynamic_resolution: "namespace"
+
+  - name: container
+    arg_type: Enum
+    description: "Container inside the pod"
+    enum_command: "kubectl get pod {{pod}} -n {{namespace}} -o jsonpath='{.spec.containers[*].name}' | tr ' ' '\n'"
+    dynamic_resolution: "pod"
+
+  - name: shell
+    arg_type: Enum
+    description: "Shell to use"
+    enum_variants:
+      - "/bin/bash"
+      - "/bin/sh"
+```
+
+Pick a namespace → pods in that namespace load → pick a pod → containers in that pod load → pick a shell. All from one YAML file.
+
+---
+
+## Git — MultiEnum Selection
+
+Select multiple commits to cherry-pick from another branch.
+
+```yaml
+name: "Cherry Pick Commits"
+description: "Cherry-pick one or more commits from another branch"
+command: "git cherry-pick {{commits}}"
+tags: ["git"]
+
+arguments:
+  - name: branch
+    arg_type: Enum
+    description: "Source branch"
+    enum_command: "git branch --format='%(refname:short)'"
+
+  - name: commits
+    arg_type: MultiEnum
+    description: "Commits to cherry-pick"
+    enum_command: "git log {{branch}} --oneline -20 | awk '{print $1}'"
+    dynamic_resolution: "branch"
+    min_selections: 1
+```
+
+Selected commit hashes get joined with `,` and passed to `git cherry-pick`.
+
+---
+
+## Kubernetes Deploy — Simple with Enum
+
+A straightforward deploy workflow with a namespace picker.
+
+```yaml
+name: "Deploy to K8s"
+description: "Deploy an app to a Kubernetes cluster"
+command: "kubectl apply -f {{file}} --namespace {{namespace}}"
+tags: ["kubernetes", "deployment"]
+
+arguments:
+  - name: file
+    description: "Path to deployment manifest"
+    default_value: "./deployment.yaml"
+
+  - name: namespace
+    arg_type: Enum
+    description: "Target namespace"
+    enum_variants:
+      - "default"
+      - "staging"
+      - "production"
+```
+
+---
+
+## More Workflows
+
+Browse 90+ community workflows in the [Workflow Vault](https://vault.sagoez.com), or sync them directly:
+
+```bash
+wf sync
+```

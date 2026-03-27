@@ -13,6 +13,20 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon.svg',
   },
+  openGraph: {
+    title: 'wf-cli',
+    description: 'Parameterized shell commands. Interactive prompts. Copied to your clipboard.',
+    url: 'https://wf.sagoez.com',
+    siteName: 'wf-cli',
+    images: [{ url: 'https://wf.sagoez.com/og.png', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'wf-cli',
+    description: 'Parameterized shell commands. Interactive prompts. Copied to your clipboard.',
+    images: ['https://wf.sagoez.com/og.png'],
+  },
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {

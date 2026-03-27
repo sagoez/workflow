@@ -1,0 +1,50 @@
+---
+title: Quick Start
+description: Create and run your first workflow in under a minute
+---
+
+## 1. Create a workflow file
+
+Create a file called `hello.yaml` in your workflows directory:
+
+| OS | Path |
+|----|------|
+| macOS | `~/Library/Application Support/workflow/workflows/` |
+| Linux | `~/.config/workflow/workflows/` |
+| Windows | `%APPDATA%/workflow/workflows/` |
+
+```yaml
+name: "Hello World"
+description: "Greet someone"
+command: "echo Hello, {{name}}!"
+
+arguments:
+  - name: name
+    description: "Who to greet"
+    default_value: "world"
+```
+
+## 2. Run it
+
+```bash
+wf
+```
+
+You'll see an interactive menu. Select "Hello World", type a name (or keep the default), and the resolved command gets copied to your clipboard.
+
+## 3. Paste and run
+
+```bash
+# Just paste from your clipboard:
+echo Hello, world!
+```
+
+That's it. One YAML file, one command, one clipboard paste.
+
+## What's next?
+
+<Cards>
+  <Card title="Workflow Structure" href="/docs/workflows" />
+  <Card title="Argument Types" href="/docs/arguments" />
+  <Card title="Real-World Examples" href="/docs/examples" />
+</Cards>
