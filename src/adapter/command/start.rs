@@ -7,7 +7,7 @@ use crate::{
     domain::{
         command::StartWorkflowCommand,
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{WorkflowEvent, WorkflowStartedEvent},
         state::WorkflowState
     },
@@ -30,7 +30,7 @@ pub fn build_started_event(
             hostname:     hostname.to_string(),
             execution_id: Uuid::new_v4().to_string()
         }),
-        _ => Err(WorkflowError::Validation(t!("error_no_workflow_selected_to_start")))
+        _ => Err(ValidationError::InvalidState(t!("error_no_workflow_selected_to_start")).into())
     }
 }
 

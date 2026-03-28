@@ -1,4 +1,15 @@
-use crate::{domain::error::WorkflowError, port::prompt::UserPrompt};
+use crate::{
+    domain::error::{PromptError, WorkflowError},
+    port::prompt::UserPrompt
+};
+
+fn interact_error(e: std::io::Error) -> WorkflowError {
+    if e.kind() == std::io::ErrorKind::Interrupted {
+        WorkflowError::Cancelled
+    } else {
+        PromptError::Interaction(e.to_string()).into()
+    }
+}
 
 /// Real implementation wrapping the `cliclack` crate
 pub struct CliPrompt;
@@ -15,7 +26,7 @@ impl UserPrompt for CliPrompt {
         for option in &options {
             select = select.item(option.clone(), option, "");
         }
-        select.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        select.interact().map_err(interact_error)
     }
 
     fn multi_select(
@@ -31,7 +42,7 @@ impl UserPrompt for CliPrompt {
             for option in &options {
                 ms = ms.item(option.clone(), option, "");
             }
-            let selections: Vec<String> = ms.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))?;
+            let selections: Vec<String> = ms.interact().map_err(interact_error)?;
 
             if let Some(min_val) = min {
                 if selections.len() < min_val {
@@ -54,7 +65,7 @@ impl UserPrompt for CliPrompt {
         if let Some(d) = default {
             input = input.default_input(d);
         }
-        input.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        input.interact().map_err(interact_error)
     }
 }
 
@@ -147,8 +158,7 @@ mod tests {
 
     #[test]
     fn mock_prompt_returns_error() {
-        let mock =
-            MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::UserInteraction("cancelled".to_string()))]);
+        let mock = MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::Cancelled)]);
         let result = mock.select("Pick", vec!["a".into()], 10);
         assert!(result.is_err());
     }

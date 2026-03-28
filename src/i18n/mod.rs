@@ -32,7 +32,7 @@ impl TryFrom<&str> for Language {
             "es" => Ok(Language::Spanish),
             _ => {
                 use crate::t_params;
-                Err(WorkflowError::UnsupportedLanguage(t_params!("error_unsupported_language", &[value])))
+                Err(WorkflowError::Config(t_params!("error_unsupported_language", &[value])))
             }
         }
     }

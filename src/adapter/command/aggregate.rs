@@ -11,7 +11,7 @@ use crate::{
     domain::{
         command::{DeleteAggregateCommand, ListAggregatesCommand, ReplayAggregateCommand},
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{AggregateReplayedEvent, WorkflowEvent},
         state::{StateDisplay, WorkflowState},
         workflow::Workflow
@@ -46,12 +46,12 @@ pub fn short_to_uuid(short: &str) -> Result<String, WorkflowError> {
             b'0'..=b'9' => b - b'0',
             b'A'..=b'Z' => b - b'A' + 10,
             b'a'..=b'z' => b - b'a' + 36,
-            _ => return Err(WorkflowError::Validation(t_params!("storage_aggregate_not_found", &[short])))
+            _ => return Err(ValidationError::Other(t_params!("storage_aggregate_not_found", &[short])).into())
         };
         num = num
             .checked_mul(62)
             .and_then(|n| n.checked_add(val as u128))
-            .ok_or_else(|| WorkflowError::Validation("ID too long".to_string()))?;
+            .ok_or_else(|| WorkflowError::from(ValidationError::Other("ID too long".to_string())))?;
     }
     let bytes = num.to_be_bytes();
     Ok(Uuid::from_bytes(bytes).to_string())
@@ -65,7 +65,7 @@ pub async fn load_aggregate_data(
 ) -> Result<(WorkflowState, usize), WorkflowError> {
     let events = event_store.get_events(aggregate_id).await?;
     if events.is_empty() {
-        return Err(WorkflowError::Validation(t_params!("storage_aggregate_not_found", &[aggregate_id])));
+        return Err(ValidationError::Other(t_params!("storage_aggregate_not_found", &[aggregate_id])).into());
     }
     let state = event_store.get_current_state(aggregate_id).await?;
     Ok((state, events.len()))
@@ -276,7 +276,7 @@ impl Command for DeleteAggregateCommand {
 
         let events = app_context.event_store.get_events(&full_id).await?;
         if events.is_empty() {
-            return Err(WorkflowError::Validation(t_params!("storage_aggregate_not_found", &[&self.aggregate_id])));
+            return Err(ValidationError::Other(t_params!("storage_aggregate_not_found", &[&self.aggregate_id])).into());
         }
 
         Ok(full_id)

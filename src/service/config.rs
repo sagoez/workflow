@@ -2,7 +2,12 @@ use std::{fs, path::PathBuf};
 
 use directories::ProjectDirs;
 
-use crate::{adapter::storage::EventStoreType, domain::error::WorkflowError, i18n::Language, t};
+use crate::{
+    adapter::storage::EventStoreType,
+    domain::error::{StorageError, ValidationError, WorkflowError},
+    i18n::Language,
+    t
+};
 
 /// Application configuration for storage and runtime settings
 #[derive(Debug, Clone)]
@@ -38,8 +43,8 @@ impl AppConfig {
 
     /// Creates a new app config with specified storage backend
     pub fn with_storage_type(storage_type: EventStoreType) -> Result<Self, WorkflowError> {
-        let project_dirs =
-            ProjectDirs::from("org", "sagoez", "workflow").ok_or(WorkflowError::FileSystem(t!("error_filesystem")))?;
+        let project_dirs = ProjectDirs::from("org", "sagoez", "workflow")
+            .ok_or(WorkflowError::from(StorageError::Io(t!("error_filesystem"))))?;
 
         let config_dir = project_dirs.config_dir().to_path_buf();
         let workflows_dir = config_dir.join("workflows");
@@ -52,9 +57,9 @@ impl AppConfig {
 
     /// Create configuration directories if they don't exist
     pub fn ensure_dirs_exist(&self) -> Result<(), WorkflowError> {
-        fs::create_dir_all(&self.config_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-        fs::create_dir_all(&self.workflows_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
-        fs::create_dir_all(&self.i18n_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+        fs::create_dir_all(&self.config_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
+        fs::create_dir_all(&self.workflows_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
+        fs::create_dir_all(&self.i18n_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         Ok(())
     }
 
@@ -64,7 +69,7 @@ impl AppConfig {
 
         if lang_file.exists() {
             let content = fs::read_to_string(&lang_file)
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to read language config: {}", e)))?;
+                .map_err(|e| StorageError::Io(format!("Failed to read language config: {}", e)))?;
             let lang_code = content.trim();
             Language::try_from(lang_code)
         } else {
@@ -77,7 +82,7 @@ impl AppConfig {
     pub fn set_current_language(&self, language: Language) -> Result<(), WorkflowError> {
         let lang_file = self.config_dir.join("language.txt");
         fs::write(&lang_file, language.code())
-            .map_err(|e| WorkflowError::FileSystem(format!("Failed to write language config: {}", e)))?;
+            .map_err(|e| StorageError::Io(format!("Failed to write language config: {}", e)))?;
         Ok(())
     }
 
@@ -87,8 +92,8 @@ impl AppConfig {
 
         if storage_file.exists() {
             let content = fs::read_to_string(&storage_file)
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to read storage config: {}", e)))?;
-            EventStoreType::from_str(content.trim()).map_err(|e| WorkflowError::Validation(e))
+                .map_err(|e| StorageError::Io(format!("Failed to read storage config: {}", e)))?;
+            EventStoreType::from_str(content.trim()).map_err(|e| WorkflowError::from(ValidationError::Other(e)))
         } else {
             Ok(EventStoreType::InMemory)
         }
@@ -98,7 +103,7 @@ impl AppConfig {
     pub fn set_current_storage(&self, storage_type: EventStoreType) -> Result<(), WorkflowError> {
         let storage_file = self.config_dir.join("storage.txt");
         fs::write(&storage_file, storage_type.as_str())
-            .map_err(|e| WorkflowError::FileSystem(format!("Failed to write storage config: {}", e)))?;
+            .map_err(|e| StorageError::Io(format!("Failed to write storage config: {}", e)))?;
         Ok(())
     }
 }

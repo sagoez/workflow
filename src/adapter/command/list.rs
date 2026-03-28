@@ -6,7 +6,7 @@ use crate::{
     domain::{
         command::ListWorkflowsCommand,
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{AvailableWorkflowsListedEvent, WorkflowEvent},
         state::WorkflowState
     },
@@ -20,7 +20,7 @@ pub fn list_workflow_names(state: &WorkflowState) -> Result<Vec<String>, Workflo
     match state {
         WorkflowState::WorkflowsDiscovered(s) => Ok(s.discovered_workflows.iter().map(|w| w.name.clone()).collect()),
         WorkflowState::Initial(_) => Ok(vec![]),
-        _ => Err(WorkflowError::Validation(t!("error_workflows_not_discovered_yet")))
+        _ => Err(ValidationError::InvalidState(t!("error_workflows_not_discovered_yet")).into())
     }
 }
 

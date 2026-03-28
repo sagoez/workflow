@@ -7,13 +7,13 @@ use crate::{
     domain::{
         command::{InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData},
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{WorkflowEvent, WorkflowSelectedEvent},
         state::WorkflowState,
         workflow::Workflow
     },
     port::{command::Command, prompt::UserPrompt},
-    t, t_params
+    t
 };
 
 /// Select a workflow from a list using the UserPrompt trait.
@@ -23,13 +23,13 @@ pub fn select_workflow(prompt: &dyn UserPrompt, workflows: &[Workflow]) -> Resul
 
     let selected_name = prompt
         .select(&t!("select_workflow"), options, 10)
-        .map_err(|e| WorkflowError::Validation(t_params!("error_selection_failed", &["workflow", &e.to_string()])))?;
+        .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed("workflow".to_string(), msg).into()))?;
 
     workflows
         .iter()
         .find(|w| w.name == selected_name)
         .cloned()
-        .ok_or_else(|| WorkflowError::Validation(format!("Workflow '{}' not found", selected_name)))
+        .ok_or_else(|| ValidationError::Other(format!("Workflow '{}' not found", selected_name)).into())
 }
 
 #[async_trait]
@@ -47,7 +47,7 @@ impl Command for InteractivelySelectWorkflowCommand {
             let workflow = select_workflow(&*app_context.prompt, &state.discovered_workflows)?;
             Ok(InteractivelySelectWorkflowData { workflow })
         } else {
-            Err(WorkflowError::Validation(t!("error_workflows_not_discovered_yet")))
+            Err(ValidationError::InvalidState(t!("error_workflows_not_discovered_yet")).into())
         }
     }
 
@@ -136,8 +136,7 @@ mod tests {
     #[test]
     fn returns_error_on_prompt_failure() {
         let workflows = vec![test_workflow("deploy")];
-        let prompt =
-            MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::UserInteraction("cancelled".to_string()))]);
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::Cancelled)]);
 
         let result = select_workflow(&prompt, &workflows);
         assert!(result.is_err());

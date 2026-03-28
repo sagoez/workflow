@@ -8,7 +8,7 @@ use crate::{
     domain::{
         command::RecordSyncResultCommand,
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{WorkflowEvent, WorkflowsSyncedEvent},
         state::WorkflowState
     },
@@ -52,7 +52,10 @@ impl Command for RecordSyncResultCommand {
         let sync_state = match current_state {
             WorkflowState::SyncRequested(sync_state) => sync_state,
             _ => {
-                return Err(WorkflowError::Validation("Cannot record sync results: no sync was requested".to_string()));
+                return Err(ValidationError::InvalidState(
+                    "Cannot record sync results: no sync was requested".to_string()
+                )
+                .into());
             }
         };
 

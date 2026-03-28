@@ -72,7 +72,7 @@ impl Command for PurgeStorageCommand {
 
         tokio::task::spawn_blocking(move || purge_database(&*fs, &db_path))
             .await
-            .map_err(|e| WorkflowError::Generic(format!("Failed to purge storage: {}", e)))??;
+            .map_err(|e| WorkflowError::Other(format!("Failed to purge storage: {}", e)))??;
 
         println!("{}", t!("storage_purge_success"));
         Ok(())

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use git2::Repository;
 
 use crate::{
-    domain::error::WorkflowError,
+    domain::error::{StorageError, ValidationError, WorkflowError},
     port::git::{CloneOptions, CommitInfo, GitClient},
     t, t_params
 };
@@ -62,7 +62,7 @@ impl GitClient for Git2Client {
         } else {
             fs::create_dir_all(destination)
                 .with_context(|| t_params!("git_failed_to_create_workflows_dir", &[&destination.display().to_string()]))
-                .map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+                .map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }
 
         println!("{}", t_params!("git_cloning_from", &[url]));
@@ -70,7 +70,7 @@ impl GitClient for Git2Client {
         // Create a temporary directory for cloning
         let temp_dir = destination.join("temp_clone");
         if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+            fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }
 
         // Clone based on whether SSH key is provided
@@ -129,19 +129,21 @@ impl GitClient for Git2Client {
                 let target_path = destination.join(file_name);
 
                 if path.is_file() {
-                    fs::copy(&path, &target_path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+                    fs::copy(&path, &target_path).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
                 } else if path.is_dir() {
                     if target_path.exists() {
-                        fs::remove_dir_all(&target_path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+                        fs::remove_dir_all(&target_path)
+                            .map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
                     }
-                    fs::rename(&path, &target_path).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+                    fs::rename(&path, &target_path)
+                        .map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
                 }
             }
         }
 
         // Clean up the temporary directory
         if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+            fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }
 
         Ok(commit_id)
@@ -149,11 +151,11 @@ impl GitClient for Git2Client {
 
     async fn get_commit_info(&self, repo_path: &Path, commit_id: Option<&str>) -> Result<CommitInfo, WorkflowError> {
         let repo = Repository::open(repo_path)
-            .map_err(|e| WorkflowError::Configuration(format!("Failed to open repository: {}", e)))?;
+            .map_err(|e| WorkflowError::Config(format!("Failed to open repository: {}", e)))?;
 
         let commit = if let Some(id) = commit_id {
-            let oid =
-                git2::Oid::from_str(id).map_err(|e| WorkflowError::Validation(format!("Invalid commit ID: {}", e)))?;
+            let oid = git2::Oid::from_str(id)
+                .map_err(|e| WorkflowError::from(ValidationError::Other(format!("Invalid commit ID: {}", e))))?;
             repo.find_commit(oid).map_err(|e| WorkflowError::Network(format!("Failed to find commit: {}", e)))?
         } else {
             let head = repo.head().map_err(|e| WorkflowError::Network(format!("Failed to get HEAD: {}", e)))?;

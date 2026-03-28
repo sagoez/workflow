@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     domain::{
-        error::WorkflowError,
+        error::{StorageError, ValidationError, WorkflowError},
         event::{AggregateEvent, EventMetadata, WorkflowEvent},
         state::WorkflowState
     },
@@ -76,7 +76,7 @@ impl InMemoryEventStore {
             if let Some(new_state) = aggregate_event.data.apply(Some(&current_state)) {
                 current_state = new_state;
             } else {
-                return Err(WorkflowError::Validation(t!("error_failed_to_apply_event")));
+                return Err(ValidationError::InvalidState(t!("error_failed_to_apply_event")).into());
             }
         }
 
@@ -341,7 +341,7 @@ impl RocksDbEventStore {
             if let Some(new_state) = event.apply(Some(&current_state)) {
                 current_state = new_state;
             } else {
-                return Err(WorkflowError::Validation(t!("error_failed_to_apply_event")));
+                return Err(ValidationError::InvalidState(t!("error_failed_to_apply_event")).into());
             }
         }
 
@@ -361,15 +361,15 @@ impl RocksDbEventStore {
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
                     let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data)
-                        .map_err(|e| WorkflowError::Serialization(format!("Failed to deserialize events: {}", e)))?;
+                        .map_err(|e| StorageError::Serialization(format!("Failed to deserialize events: {}", e)))?;
                     Ok(aggregate_events.into_iter().map(|ae| ae.data).collect())
                 }
                 Ok(None) => Ok(vec![]),
-                Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read from RocksDB: {}", e)))
+                Err(e) => Err(StorageError::Io(format!("Failed to read from RocksDB: {}", e)).into())
             }
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to read events: {}", e)))?
+        .map_err(|e| WorkflowError::Other(format!("Failed to read events: {}", e)))?
     }
 }
 
@@ -403,8 +403,7 @@ impl EventStore for RocksDbEventStore {
 
             let iter = db.iterator(rocksdb::IteratorMode::From(prefix, rocksdb::Direction::Forward));
             for item in iter {
-                let (key, _) =
-                    item.map_err(|e| WorkflowError::FileSystem(format!("Failed to iterate RocksDB: {}", e)))?;
+                let (key, _) = item.map_err(|e| StorageError::Io(format!("Failed to iterate RocksDB: {}", e)))?;
                 let key_str = String::from_utf8_lossy(&key);
 
                 if key_str.starts_with("journal:") {
@@ -419,7 +418,7 @@ impl EventStore for RocksDbEventStore {
             Ok(aggregate_ids.into_iter().collect())
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to list aggregates: {}", e)))?
+        .map_err(|e| WorkflowError::Other(format!("Failed to list aggregates: {}", e)))?
     }
 
     async fn delete_aggregate(&self, aggregate_id: &str) -> Result<(), WorkflowError> {
@@ -428,10 +427,10 @@ impl EventStore for RocksDbEventStore {
 
         tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
             db.delete(key.as_bytes())
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to delete from RocksDB: {}", e)))
+                .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to delete from RocksDB: {}", e))))
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to delete aggregate: {}", e)))??;
+        .map_err(|e| WorkflowError::Other(format!("Failed to delete aggregate: {}", e)))??;
 
         let mut cache = self.cache.write().await;
         cache.remove(aggregate_id);
@@ -451,7 +450,7 @@ impl EventStoreFactory {
         match store_type {
             EventStoreType::InMemory => Ok(Arc::new(InMemoryEventStore::new())),
             EventStoreType::RocksDb => {
-                let path = db_path.ok_or(WorkflowError::Generic(t!("error_rocksdb_path_required")))?;
+                let path = db_path.ok_or(WorkflowError::Other(t!("error_rocksdb_path_required")))?;
 
                 let db = DB_INSTANCE.get_or_try_init(|| {
                     let mut opts = Options::default();
@@ -459,7 +458,7 @@ impl EventStoreFactory {
                     opts.set_compression_type(rocksdb::DBCompressionType::Snappy);
                     DB::open(&opts, path)
                         .map(Arc::new)
-                        .map_err(|e| WorkflowError::FileSystem(format!("Failed to open RocksDB: {}", e)))
+                        .map_err(|e| StorageError::Io(format!("Failed to open RocksDB: {}", e)))
                 })?;
 
                 Ok(Arc::new(RocksDbEventStore::from_db(db.clone())))

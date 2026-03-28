@@ -188,20 +188,20 @@ impl Guardian {
                     }
                 }
                 Ok(_) => {
-                    if let Err(e) = reply.send(Err(WorkflowError::Generic(t!("error_workflow_manager_call_failed")))) {
+                    if let Err(e) = reply.send(Err(WorkflowError::Other(t!("error_workflow_manager_call_failed")))) {
                         event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %e);
                     }
                 }
                 Err(e) => {
                     let workflow_error = match e {
                         ractor::MessagingErr::SendErr(_) => {
-                            WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))
+                            WorkflowError::Other(t!("error_failed_to_send_command_to_actor_system"))
                         }
                         ractor::MessagingErr::ChannelClosed => {
-                            WorkflowError::Generic(t!("error_workflow_manager_call_failed"))
+                            WorkflowError::Other(t!("error_workflow_manager_call_failed"))
                         }
                         ractor::MessagingErr::InvalidActorType => {
-                            WorkflowError::Generic(t!("error_actor_system_not_initialized"))
+                            WorkflowError::Other(t!("error_actor_system_not_initialized"))
                         }
                     };
                     if let Err(send_err) = reply.send(Err(workflow_error)) {
@@ -209,7 +209,7 @@ impl Guardian {
                     }
                 }
             }
-        } else if let Err(e) = reply.send(Err(WorkflowError::Generic(t!("error_actor_system_not_initialized")))) {
+        } else if let Err(e) = reply.send(Err(WorkflowError::Other(t!("error_actor_system_not_initialized")))) {
             event!(Level::ERROR, event = guardian::COMMAND_SUBMITTED, error = %e);
         }
 

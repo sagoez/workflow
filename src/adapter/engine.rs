@@ -6,7 +6,10 @@ use crate::{
     AppContext,
     adapter::storage::EventStoreType,
     domain::{
-        command::WorkflowCommand, engine::EngineContext, error::WorkflowError, event::WorkflowEvent,
+        command::WorkflowCommand,
+        engine::EngineContext,
+        error::{ValidationError, WorkflowError},
+        event::WorkflowEvent,
         state::WorkflowState
     },
     port::{command::Command, engine::Engine, event::Event},
@@ -45,14 +48,14 @@ impl Engine for EngineV1 {
         context: &EngineContext,
         current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, WorkflowError> {
-        command
-            .validate(loaded_data)
-            .map_err(|e| WorkflowError::Validation(t_params!("validation_phase_failed", &[&e.to_string()])))?;
+        command.validate(loaded_data).map_err(|e| {
+            WorkflowError::from(ValidationError::Other(t_params!("validation_phase_failed", &[&e.to_string()])))
+        })?;
 
         let events = command
             .emit(loaded_data, context, &self.app_context, current_state)
             .await
-            .map_err(|e| WorkflowError::Event(t_params!("emit_phase_failed", &[&e.to_string()])))?;
+            .map_err(|e| WorkflowError::Other(t_params!("emit_phase_failed", &[&e.to_string()])))?;
 
         Ok(events)
     }
@@ -67,7 +70,7 @@ impl Engine for EngineV1 {
         for event in events {
             state = event
                 .apply(Some(&state))
-                .ok_or_else(|| WorkflowError::Event(t_params!("failed_to_apply_event", &[&format!("{:?}", event)])))?;
+                .ok_or_else(|| WorkflowError::Other(t_params!("failed_to_apply_event", &[&format!("{:?}", event)])))?;
         }
 
         Ok(state)

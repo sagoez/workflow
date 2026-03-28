@@ -55,7 +55,7 @@ macro_rules! impl_command {
                     $(
                         $enum_name::$variant($field) => {
                             let data = loaded_data.downcast_ref().ok_or_else(||
-                                WorkflowError::Generic(t!("error_failed_to_downcast_loaded_data").to_string()))?;
+                                WorkflowError::Other(t!("error_failed_to_downcast_loaded_data").to_string()))?;
                             $field.validate(data)
                         }
                     )*
@@ -73,7 +73,7 @@ macro_rules! impl_command {
                     $(
                         $enum_name::$variant($field) => {
                             let data = loaded_data.downcast_ref().ok_or_else(||
-                                WorkflowError::Generic(t!("error_failed_to_downcast_loaded_data").to_string()))?;
+                                WorkflowError::Other(t!("error_failed_to_downcast_loaded_data").to_string()))?;
                             $field.emit(data, context, app_context, current_state).await
                         }
                     )*
@@ -92,7 +92,7 @@ macro_rules! impl_command {
                     $(
                         $enum_name::$variant($field) => {
                             let loaded_data = loaded_data.downcast_ref().ok_or_else(||
-                                WorkflowError::Generic(t!("error_failed_to_downcast_loaded_data").to_string()))?;
+                                WorkflowError::Other(t!("error_failed_to_downcast_loaded_data").to_string()))?;
                             $field.effect(loaded_data, previous_state, current_state, context, app_context).await
                         }
                     )*
@@ -156,11 +156,9 @@ impl_command!(WorkflowCommand {
 
 /// Helper function to copy text to clipboard
 fn copy_to_clipboard(text: &str) -> Result<(), WorkflowError> {
-    let mut ctx = clipboard::ClipboardContext::new().map_err(|e| {
-        WorkflowError::Validation(t_params!("error_failed_to_create_clipboard_context", &[&e.to_string()]))
-    })?;
-    ctx.set_contents(text.to_owned()).map_err(|e| {
-        WorkflowError::Validation(t_params!("error_failed_to_set_clipboard_contents", &[&e.to_string()]))
-    })?;
+    let mut ctx = clipboard::ClipboardContext::new()
+        .map_err(|e| WorkflowError::Other(t_params!("error_failed_to_create_clipboard_context", &[&e.to_string()])))?;
+    ctx.set_contents(text.to_owned())
+        .map_err(|e| WorkflowError::Other(t_params!("error_failed_to_set_clipboard_contents", &[&e.to_string()])))?;
     Ok(())
 }

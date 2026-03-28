@@ -6,7 +6,7 @@ use crate::{
     domain::{
         command::{DiscoverWorkflowsCommand, DiscoverWorkflowsData},
         engine::EngineContext,
-        error::WorkflowError,
+        error::{StorageError, WorkflowError},
         event::{WorkflowDiscoveredEvent, WorkflowEvent},
         state::WorkflowState,
         workflow::Workflow
@@ -31,8 +31,8 @@ pub fn discover_workflows(
         if let Some(extension) = path.extension() {
             if extension == "yaml" || extension == "yml" {
                 let content = fs.read_to_string(&path)?;
-                let workflow: Workflow =
-                    serde_yaml::from_str(&content).map_err(|e| WorkflowError::Serialization(e.to_string()))?;
+                let workflow: Workflow = serde_yaml::from_str(&content)
+                    .map_err(|e| WorkflowError::from(StorageError::Serialization(e.to_string())))?;
                 workflows.push(workflow);
             }
         }
@@ -58,7 +58,7 @@ impl Command for DiscoverWorkflowsCommand {
 
         let workflows = tokio::task::spawn_blocking(move || discover_workflows(&*fs, &workflows_dir))
             .await
-            .map_err(|e| WorkflowError::Generic(format!("Failed to discover workflows: {}", e)))??;
+            .map_err(|e| WorkflowError::Other(format!("Failed to discover workflows: {}", e)))??;
 
         Ok(DiscoverWorkflowsData { workflows })
     }

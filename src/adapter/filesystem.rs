@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use crate::{domain::error::WorkflowError, port::filesystem::FileSystem};
+use crate::{
+    domain::error::{StorageError, WorkflowError},
+    port::filesystem::FileSystem
+};
 
 /// Real implementation wrapping std::fs
 pub struct StdFileSystem;
@@ -13,11 +16,11 @@ impl StdFileSystem {
 
 impl FileSystem for StdFileSystem {
     fn read_to_string(&self, path: &Path) -> Result<String, WorkflowError> {
-        std::fs::read_to_string(path).map_err(|e| WorkflowError::FileSystem(e.to_string()))
+        std::fs::read_to_string(path).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))
     }
 
     fn write(&self, path: &Path, contents: &str) -> Result<(), WorkflowError> {
-        std::fs::write(path, contents).map_err(|e| WorkflowError::FileSystem(e.to_string()))
+        std::fs::write(path, contents).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))
     }
 
     fn exists(&self, path: &Path) -> bool {
@@ -25,21 +28,21 @@ impl FileSystem for StdFileSystem {
     }
 
     fn create_dir_all(&self, path: &Path) -> Result<(), WorkflowError> {
-        std::fs::create_dir_all(path).map_err(|e| WorkflowError::FileSystem(e.to_string()))
+        std::fs::create_dir_all(path).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), WorkflowError> {
-        std::fs::remove_file(path).map_err(|e| WorkflowError::FileSystem(e.to_string()))
+        std::fs::remove_file(path).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))
     }
 
     fn remove_dir_all(&self, path: &Path) -> Result<(), WorkflowError> {
-        std::fs::remove_dir_all(path).map_err(|e| WorkflowError::FileSystem(e.to_string()))
+        std::fs::remove_dir_all(path).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))
     }
 
     fn read_dir_entries(&self, path: &Path) -> Result<Vec<PathBuf>, WorkflowError> {
         let mut entries = Vec::new();
-        for entry in std::fs::read_dir(path).map_err(|e| WorkflowError::FileSystem(e.to_string()))? {
-            let entry = entry.map_err(|e| WorkflowError::FileSystem(e.to_string()))?;
+        for entry in std::fs::read_dir(path).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))? {
+            let entry = entry.map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
             entries.push(entry.path());
         }
         Ok(entries)
@@ -74,7 +77,7 @@ pub mod mock {
             files
                 .get(path)
                 .cloned()
-                .ok_or_else(|| WorkflowError::FileSystem(format!("File not found: {}", path.display())))
+                .ok_or_else(|| WorkflowError::from(StorageError::Io(format!("File not found: {}", path.display()))))
         }
 
         fn write(&self, path: &Path, contents: &str) -> Result<(), WorkflowError> {
@@ -99,7 +102,7 @@ pub mod mock {
             let mut files = self.files.lock().unwrap();
             files
                 .remove(path)
-                .ok_or_else(|| WorkflowError::FileSystem(format!("File not found: {}", path.display())))?;
+                .ok_or_else(|| WorkflowError::from(StorageError::Io(format!("File not found: {}", path.display()))))?;
             Ok(())
         }
 

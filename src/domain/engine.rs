@@ -21,6 +21,6 @@ impl EngineContext {
     pub async fn schedule_command(&self, command: WorkflowCommand) -> Result<(), WorkflowError> {
         self.processor_ref
             .cast(CommandProcessorMessage::ScheduleCommand { command })
-            .map_err(|e| WorkflowError::Generic(format!("Failed to schedule command: {:?}", e)))
+            .map_err(|e| WorkflowError::Other(format!("Failed to schedule command: {:?}", e)))
     }
 }

@@ -10,7 +10,7 @@ use crate::{
     domain::{
         command::{ResolveArgumentsCommand, ResolveArgumentsData},
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{WorkflowArgumentsResolvedEvent, WorkflowEvent},
         state::WorkflowState,
         workflow::WorkflowArgument
@@ -27,7 +27,7 @@ pub fn validate_all_resolved(
 ) -> Result<(), WorkflowError> {
     for arg in arguments {
         if !resolved.contains_key(&arg.name) {
-            return Err(WorkflowError::Validation(t_params!("error_argument_not_resolved", &[&arg.name])));
+            return Err(ValidationError::ArgumentNotResolved(arg.name.clone()).into());
         }
     }
     Ok(())
@@ -43,8 +43,12 @@ pub fn render_command_template(template: &str, resolved: &HashMap<String, String
         context.insert(key, value);
     }
 
-    tera.render_str(template, &context)
-        .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_render_command_template", &[&e.to_string()])))
+    tera.render_str(template, &context).map_err(|e| {
+        WorkflowError::from(ValidationError::Other(t_params!(
+            "error_failed_to_render_command_template",
+            &[&e.to_string()]
+        )))
+    })
 }
 
 #[async_trait]
@@ -60,7 +64,7 @@ impl Command for ResolveArgumentsCommand {
     ) -> Result<Self::LoadedData, Self::Error> {
         let workflow = match current_state {
             WorkflowState::WorkflowStarted(state) => state.selected_workflow.clone(),
-            _ => return Err(WorkflowError::Validation(t!("error_no_workflow_started_to_resolve_arguments")))
+            _ => return Err(ValidationError::InvalidState(t!("error_no_workflow_started_to_resolve_arguments")).into())
         };
 
         let resolved_arguments = ArgumentResolver::resolve_workflow_arguments(
@@ -69,7 +73,12 @@ impl Command for ResolveArgumentsCommand {
             &*app_context.executor
         )
         .await
-        .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_resolve_arguments", &[&e.to_string()])))?;
+        .map_err(|e| {
+            WorkflowError::from(ValidationError::Other(t_params!(
+                "error_failed_to_resolve_arguments",
+                &[&e.to_string()]
+            )))
+        })?;
 
         Ok(ResolveArgumentsData { workflow, resolved_arguments })
     }
@@ -95,7 +104,7 @@ impl Command for ResolveArgumentsCommand {
 
                 Ok(vec![WorkflowEvent::WorkflowArgumentsResolved(event)])
             }
-            _ => Err(WorkflowError::Validation(t!("error_no_workflow_execution_in_progress")))
+            _ => Err(ValidationError::InvalidState(t!("error_no_workflow_execution_in_progress")).into())
         }
     }
 

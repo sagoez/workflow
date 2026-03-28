@@ -6,7 +6,7 @@ use crate::{
     domain::{
         command::{GetCurrentLanguageCommand, ListLanguagesCommand, SetLanguageCommand},
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{LanguageSetEvent, WorkflowEvent},
         state::WorkflowState
     },
@@ -75,7 +75,7 @@ impl Command for SetLanguageCommand {
                 println!("{}", t_params!("lang_set_success", &[&state.language]));
             }
             _ => {
-                return Err(WorkflowError::Validation("Invalid state for language set".to_string()));
+                return Err(ValidationError::InvalidState("Invalid state for language set".to_string()).into());
             }
         }
         Ok(())

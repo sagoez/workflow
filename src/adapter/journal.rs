@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use crate::{
     adapter::storage::EventStoreFactory,
     domain::{
-        error::WorkflowError,
+        error::{StorageError, WorkflowError},
         event::{AggregateEvent, EventMetadata, WorkflowEvent}
     },
     port::journal::Journal,
@@ -133,15 +133,15 @@ impl RocksDbJournal {
 
             let key = format!("snapshot:{}:{}", session_id, sequence);
             let serialized = serde_json::to_vec(&state)
-                .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize snapshot: {}", e)))?;
+                .map_err(|e| StorageError::Serialization(format!("Failed to serialize snapshot: {}", e)))?;
 
             db.put(key.as_bytes(), serialized)
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write snapshot: {}", e)))?;
+                .map_err(|e| StorageError::Io(format!("Failed to write snapshot: {}", e)))?;
 
             Ok(())
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to create snapshot: {}", e)))??;
+        .map_err(|e| WorkflowError::Other(format!("Failed to create snapshot: {}", e)))??;
 
         Ok(())
     }
@@ -169,25 +169,24 @@ impl Journal for RocksDbJournal {
             let key = format!("journal:{}", session_id_owned);
 
             let mut all_events: Vec<AggregateEvent> = match db.get(key.as_bytes()) {
-                Ok(Some(data)) => serde_json::from_slice(&data).map_err(|e| {
-                    WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
-                })?,
+                Ok(Some(data)) => serde_json::from_slice(&data)
+                    .map_err(|e| StorageError::Serialization(format!("Failed to deserialize journal events: {}", e)))?,
                 Ok(None) => vec![],
-                Err(e) => return Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+                Err(e) => return Err(StorageError::Io(format!("Failed to read journal: {}", e)).into())
             };
 
             all_events.extend(events_to_store);
 
             let serialized = serde_json::to_vec(&all_events)
-                .map_err(|e| WorkflowError::Serialization(format!("Failed to serialize journal events: {}", e)))?;
+                .map_err(|e| StorageError::Serialization(format!("Failed to serialize journal events: {}", e)))?;
 
             db.put(key.as_bytes(), serialized)
-                .map_err(|e| WorkflowError::FileSystem(format!("Failed to write journal: {}", e)))?;
+                .map_err(|e| StorageError::Io(format!("Failed to write journal: {}", e)))?;
 
             Ok(())
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to persist journal events: {}", e)))??;
+        .map_err(|e| WorkflowError::Other(format!("Failed to persist journal events: {}", e)))??;
 
         let sequence = self.highest_sequence_nr(session_id).await?;
         if sequence % self.snapshot_threshold == 0 {
@@ -199,16 +198,16 @@ impl Journal for RocksDbJournal {
                     match db.get(key.as_bytes()) {
                         Ok(Some(data)) => {
                             let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data)
-                                .map_err(|e| WorkflowError::Serialization(format!("Failed to deserialize: {}", e)))?;
+                                .map_err(|e| StorageError::Serialization(format!("Failed to deserialize: {}", e)))?;
                             Ok(aggregate_events.into_iter().map(|ae| ae.data).collect())
                         }
                         Ok(None) => Ok(vec![]),
-                        Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read: {}", e)))
+                        Err(e) => Err(StorageError::Io(format!("Failed to read: {}", e)).into())
                     }
                 }
             })
             .await
-            .map_err(|e| WorkflowError::Generic(format!("Failed to read events: {}", e)))??;
+            .map_err(|e| WorkflowError::Other(format!("Failed to read events: {}", e)))??;
 
             self.create_snapshot(session_id, sequence, &all_events).await?;
         }
@@ -236,7 +235,7 @@ impl Journal for RocksDbJournal {
                         if parts.len() == 3 {
                             let sequence = parts[2]
                                 .parse::<u64>()
-                                .map_err(|e| WorkflowError::Serialization(format!("Invalid sequence: {}", e)))?;
+                                .map_err(|e| StorageError::Serialization(format!("Invalid sequence: {}", e)))?;
                             return Ok(Some(sequence));
                         }
                     }
@@ -246,7 +245,7 @@ impl Journal for RocksDbJournal {
             Ok(None)
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to find snapshot: {}", e)))??;
+        .map_err(|e| WorkflowError::Other(format!("Failed to find snapshot: {}", e)))??;
 
         let skip_until = snapshot_sequence.unwrap_or(0).max(from_sequence);
 
@@ -259,16 +258,16 @@ impl Journal for RocksDbJournal {
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
                     let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data).map_err(|e| {
-                        WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                        StorageError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
                     Ok(aggregate_events.into_iter().skip(skip_until as usize).map(|ae| ae.data).collect())
                 }
                 Ok(None) => Ok(vec![]),
-                Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+                Err(e) => Err(StorageError::Io(format!("Failed to read journal: {}", e)).into())
             }
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to replay journal events: {}", e)))?
+        .map_err(|e| WorkflowError::Other(format!("Failed to replay journal events: {}", e)))?
     }
 
     async fn highest_sequence_nr(&self, session_id: &str) -> Result<u64, WorkflowError> {
@@ -281,16 +280,16 @@ impl Journal for RocksDbJournal {
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
                     let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data).map_err(|e| {
-                        WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                        StorageError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
                     Ok(aggregate_events.len() as u64)
                 }
                 Ok(None) => Ok(0),
-                Err(e) => Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+                Err(e) => Err(StorageError::Io(format!("Failed to read journal: {}", e)).into())
             }
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to get sequence number: {}", e)))?
+        .map_err(|e| WorkflowError::Other(format!("Failed to get sequence number: {}", e)))?
     }
 
     async fn delete_events(&self, session_id: &str, to_sequence: u64) -> Result<(), WorkflowError> {
@@ -303,30 +302,30 @@ impl Journal for RocksDbJournal {
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
                     let mut events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
-                        WorkflowError::Serialization(format!("Failed to deserialize journal events: {}", e))
+                        StorageError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
 
                     events.drain(0..(to_sequence as usize).min(events.len()));
 
                     if events.is_empty() {
                         db.delete(key.as_bytes())
-                            .map_err(|e| WorkflowError::FileSystem(format!("Failed to delete journal: {}", e)))?;
+                            .map_err(|e| StorageError::Io(format!("Failed to delete journal: {}", e)))?;
                     } else {
                         let serialized = serde_json::to_vec(&events).map_err(|e| {
-                            WorkflowError::Serialization(format!("Failed to serialize journal events: {}", e))
+                            StorageError::Serialization(format!("Failed to serialize journal events: {}", e))
                         })?;
                         db.put(key.as_bytes(), serialized)
-                            .map_err(|e| WorkflowError::FileSystem(format!("Failed to write journal: {}", e)))?;
+                            .map_err(|e| StorageError::Io(format!("Failed to write journal: {}", e)))?;
                     }
                 }
                 Ok(None) => {}
-                Err(e) => return Err(WorkflowError::FileSystem(format!("Failed to read journal: {}", e)))
+                Err(e) => return Err(StorageError::Io(format!("Failed to read journal: {}", e)).into())
             }
 
             Ok(())
         })
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to delete journal events: {}", e)))?
+        .map_err(|e| WorkflowError::Other(format!("Failed to delete journal events: {}", e)))?
     }
 }
 
@@ -344,7 +343,7 @@ impl JournalFactory {
             JournalType::InMemory => Ok(Arc::new(InMemoryJournal::new())),
             JournalType::RocksDb => {
                 let db =
-                    EventStoreFactory::get_db().ok_or(WorkflowError::Generic(t!("error_rocksdb_not_initialized")))?;
+                    EventStoreFactory::get_db().ok_or(WorkflowError::Other(t!("error_rocksdb_not_initialized")))?;
                 Ok(Arc::new(RocksDbJournal::new(db)))
             }
         }

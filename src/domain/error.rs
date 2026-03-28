@@ -4,100 +4,119 @@ use thiserror::Error;
 
 use crate::t_params;
 
-/// Common error types for the workflow system
-#[derive(Clone, Error)]
-pub enum WorkflowError {
-    /// File system related errors
-    FileSystem(String),
+#[derive(Debug, Clone, Error)]
+pub enum ValidationError {
+    InvalidState(String),
+    ArgumentNotResolved(String),
+    SelectionFailed(String, String),
+    InputFailed(String, String),
+    Other(String)
+}
 
-    /// Configuration related errors
-    Configuration(String),
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidState(msg) => write!(f, "{}", t_params!("error_validation", &[msg])),
+            Self::ArgumentNotResolved(name) => {
+                write!(f, "{}", t_params!("error_argument_not_resolved", &[name]))
+            }
+            Self::SelectionFailed(target, msg) => {
+                write!(f, "{}", t_params!("error_selection_failed", &[target, msg]))
+            }
+            Self::InputFailed(target, msg) => {
+                write!(f, "{}", t_params!("error_input_failed", &[target, msg]))
+            }
+            Self::Other(msg) => write!(f, "{}", t_params!("error_validation", &[msg]))
+        }
+    }
+}
 
-    /// Validation errors
-    Validation(String),
-
-    /// Command execution errors
-    Execution(String),
-
-    /// Event processing errors
-    Event(String),
-
-    /// User interaction errors
-    UserInteraction(String),
-
-    /// Network/IO errors
-    Network(String),
-
-    /// Serialization/deserialization errors
+#[derive(Debug, Clone, Error)]
+pub enum StorageError {
+    Io(String),
     Serialization(String),
+    NotFound(String)
+}
 
-    /// Spawn errors
+impl fmt::Display for StorageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(msg) => write!(f, "{}", t_params!("error_file_system", &[msg])),
+            Self::Serialization(msg) => write!(f, "{}", t_params!("error_serialization", &[msg])),
+            Self::NotFound(msg) => write!(f, "{}", msg)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum PromptError {
+    Interaction(String)
+}
+
+impl fmt::Display for PromptError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Interaction(msg) => write!(f, "{}", t_params!("error_user_interaction", &[msg]))
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum WorkflowError {
+    Validation(ValidationError),
+    Storage(StorageError),
+    Prompt(PromptError),
+    Cancelled,
+    Execution(String),
+    Network(String),
     Spawn(String),
-
-    /// Unsupported language
-    UnsupportedLanguage(String),
-
-    /// Recovery errors
-    Recovery(String),
-
-    /// Journal write errors
-    JournalWrite(String),
-
-    /// Snapshot errors
-    Snapshot(String),
-
-    /// Timeout errors
     Timeout(String),
+    Config(String),
+    Other(String)
+}
 
-    /// Generic errors with context
-    Generic(String)
+impl std::error::Error for WorkflowError {}
+
+impl WorkflowError {
+    pub fn wrap(self, f: impl FnOnce(String) -> WorkflowError) -> WorkflowError {
+        match self {
+            WorkflowError::Cancelled => WorkflowError::Cancelled,
+            other => f(other.to_string())
+        }
+    }
+}
+
+impl From<ValidationError> for WorkflowError {
+    fn from(err: ValidationError) -> Self {
+        WorkflowError::Validation(err)
+    }
+}
+
+impl From<StorageError> for WorkflowError {
+    fn from(err: StorageError) -> Self {
+        WorkflowError::Storage(err)
+    }
+}
+
+impl From<PromptError> for WorkflowError {
+    fn from(err: PromptError) -> Self {
+        WorkflowError::Prompt(err)
+    }
 }
 
 impl fmt::Display for WorkflowError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg = match self {
-            WorkflowError::FileSystem(msg) => t_params!("error_file_system", &[msg]),
-            WorkflowError::Configuration(msg) => t_params!("error_configuration", &[msg]),
-            WorkflowError::Validation(msg) => t_params!("error_validation", &[msg]),
-            WorkflowError::Execution(msg) => {
-                if msg.contains("🚫") || msg.contains("❌") || msg.contains("📁") || msg.contains("⚙️") {
-                    msg.clone()
-                } else {
-                    t_params!("error_execution", &[msg])
-                }
-            }
-            WorkflowError::Event(msg) => t_params!("error_event", &[msg]),
-            WorkflowError::UserInteraction(msg) => t_params!("error_user_interaction", &[msg]),
-            WorkflowError::Network(msg) => t_params!("error_network", &[msg]),
-            WorkflowError::Serialization(msg) => t_params!("error_serialization", &[msg]),
-            WorkflowError::Spawn(msg) => t_params!("error_spawn", &[msg]),
-            WorkflowError::UnsupportedLanguage(msg) => t_params!("error_unsupported_language", &[msg]),
-            WorkflowError::Recovery(msg) => t_params!("error_recovery", &[msg]),
-            WorkflowError::JournalWrite(msg) => t_params!("error_journal_write", &[msg]),
-            WorkflowError::Snapshot(msg) => t_params!("error_snapshot", &[msg]),
-            WorkflowError::Timeout(msg) => t_params!("error_timeout", &[msg]),
-            WorkflowError::Generic(msg) => t_params!("error_generic", &[msg])
-        };
-
-        if msg.contains('\n') && msg.contains("└─") {
-            return write!(f, "{}", msg);
-        }
-
-        if msg.contains('\n') && msg.lines().any(|line| line.trim().starts_with("  ")) {
-            return write!(f, "{}", msg);
-        }
-
-        let parts: Vec<&str> = msg.split(':').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-
-        if parts.len() <= 1 {
-            write!(f, "{}", msg)
-        } else {
-            let mut result = vec![parts[0].to_string()];
-            for (i, part) in parts.iter().enumerate().skip(1) {
-                let indent = "  ".repeat(i);
-                result.push(format!("{}└─ {}", indent, part));
-            }
-            write!(f, "{}", result.join("\n"))
+        match self {
+            Self::Validation(e) => write!(f, "{}", e),
+            Self::Storage(e) => write!(f, "{}", e),
+            Self::Prompt(e) => write!(f, "{}", e),
+            Self::Cancelled => Ok(()),
+            Self::Execution(msg) => write!(f, "{}", t_params!("error_execution", &[msg])),
+            Self::Network(msg) => write!(f, "{}", t_params!("error_network", &[msg])),
+            Self::Spawn(msg) => write!(f, "{}", t_params!("error_spawn", &[msg])),
+            Self::Timeout(msg) => write!(f, "{}", t_params!("error_timeout", &[msg])),
+            Self::Config(msg) => write!(f, "{}", t_params!("error_configuration", &[msg])),
+            Self::Other(msg) => write!(f, "{}", t_params!("error_generic", &[msg]))
         }
     }
 }
@@ -108,38 +127,39 @@ impl fmt::Debug for WorkflowError {
     }
 }
 
-/// Convert from anyhow::Error
-impl From<anyhow::Error> for WorkflowError {
-    fn from(err: anyhow::Error) -> Self {
-        WorkflowError::Generic(err.to_string())
+impl From<std::io::Error> for StorageError {
+    fn from(err: std::io::Error) -> Self {
+        StorageError::Io(err.to_string())
     }
 }
 
-/// Convert from std::io::Error
 impl From<std::io::Error> for WorkflowError {
     fn from(err: std::io::Error) -> Self {
-        WorkflowError::FileSystem(err.to_string())
+        WorkflowError::Storage(StorageError::Io(err.to_string()))
     }
 }
 
-/// Convert from serde_yaml::Error
 impl From<serde_yaml::Error> for WorkflowError {
     fn from(err: serde_yaml::Error) -> Self {
-        WorkflowError::Serialization(err.to_string())
+        WorkflowError::Storage(StorageError::Serialization(err.to_string()))
     }
 }
 
-/// Convert from serde_json::Error
 impl From<serde_json::Error> for WorkflowError {
     fn from(err: serde_json::Error) -> Self {
-        WorkflowError::Serialization(err.to_string())
+        WorkflowError::Storage(StorageError::Serialization(err.to_string()))
     }
 }
 
-/// Convert from ractor::SpawnErr
 impl From<ractor::SpawnErr> for WorkflowError {
     fn from(err: ractor::SpawnErr) -> Self {
         WorkflowError::Spawn(err.to_string())
+    }
+}
+
+impl From<anyhow::Error> for WorkflowError {
+    fn from(err: anyhow::Error) -> Self {
+        WorkflowError::Other(err.to_string())
     }
 }
 
@@ -148,90 +168,87 @@ mod tests {
     use super::*;
 
     #[test]
+    fn cancelled_variant_exists() {
+        let err = WorkflowError::Cancelled;
+        assert!(matches!(err, WorkflowError::Cancelled));
+    }
+
+    #[test]
+    fn cancelled_display_is_empty() {
+        let err = WorkflowError::Cancelled;
+        assert_eq!(format!("{}", err), "");
+    }
+
+    #[test]
+    fn validation_from_converts() {
+        let v = ValidationError::ArgumentNotResolved("port".to_string());
+        let err: WorkflowError = v.into();
+        assert!(matches!(err, WorkflowError::Validation(_)));
+    }
+
+    #[test]
+    fn storage_from_converts() {
+        let s = StorageError::Io("disk full".to_string());
+        let err: WorkflowError = s.into();
+        assert!(matches!(err, WorkflowError::Storage(_)));
+    }
+
+    #[test]
+    fn prompt_from_converts() {
+        let p = PromptError::Interaction("cancelled".to_string());
+        let err: WorkflowError = p.into();
+        assert!(matches!(err, WorkflowError::Prompt(_)));
+    }
+
+    #[test]
+    fn io_error_converts_to_storage() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err: WorkflowError = io_err.into();
+        assert!(matches!(err, WorkflowError::Storage(StorageError::Io(_))));
+    }
+
+    #[test]
+    fn serde_yaml_converts_to_storage() {
+        let yaml_err = serde_yaml::from_str::<String>("{{invalid").unwrap_err();
+        let err: WorkflowError = yaml_err.into();
+        assert!(matches!(err, WorkflowError::Storage(StorageError::Serialization(_))));
+    }
+
+    #[test]
+    fn serde_json_converts_to_storage() {
+        let json_err = serde_json::from_str::<String>("not json").unwrap_err();
+        let err: WorkflowError = json_err.into();
+        assert!(matches!(err, WorkflowError::Storage(StorageError::Serialization(_))));
+    }
+
+    #[test]
     fn all_variants_display_without_panic() {
         let variants: Vec<WorkflowError> = vec![
-            WorkflowError::FileSystem("disk full".to_string()),
-            WorkflowError::Configuration("bad config".to_string()),
-            WorkflowError::Validation("invalid input".to_string()),
+            ValidationError::Other("bad".to_string()).into(),
+            StorageError::Io("disk".to_string()).into(),
+            PromptError::Interaction("cancelled".to_string()).into(),
+            WorkflowError::Cancelled,
             WorkflowError::Execution("failed".to_string()),
-            WorkflowError::Event("bad event".to_string()),
-            WorkflowError::UserInteraction("cancelled".to_string()),
             WorkflowError::Network("timeout".to_string()),
-            WorkflowError::Serialization("parse error".to_string()),
-            WorkflowError::Spawn("failed to spawn".to_string()),
-            WorkflowError::UnsupportedLanguage("klingon".to_string()),
-            WorkflowError::Recovery("recovery failed".to_string()),
-            WorkflowError::JournalWrite("write failed".to_string()),
-            WorkflowError::Snapshot("snapshot failed".to_string()),
+            WorkflowError::Spawn("failed".to_string()),
             WorkflowError::Timeout("5s".to_string()),
-            WorkflowError::Generic("something".to_string()),
+            WorkflowError::Config("bad".to_string()),
+            WorkflowError::Other("something".to_string()),
         ];
-
         for variant in &variants {
-            let display = format!("{}", variant);
-            assert!(!display.is_empty());
+            let _ = format!("{}", variant);
         }
-    }
-
-    #[test]
-    fn display_contains_inner_message() {
-        // When TextManager is initialized, the i18n key "error_generic" contains "{0}"
-        // which gets replaced with the message. Without TextManager, t() returns the
-        // raw key "error_generic" and t_params replaces "{0}" in it — but the key
-        // itself has no "{0}". So we test that Display produces a non-empty string.
-        let err = WorkflowError::Generic("my error msg".to_string());
-        let display = format!("{}", err);
-        assert!(!display.is_empty(), "Display was: {}", display);
-    }
-
-    #[test]
-    fn execution_passthrough_with_emoji() {
-        let err = WorkflowError::Execution("🚫 already formatted".to_string());
-        let display = format!("{}", err);
-        assert!(display.contains("🚫 already formatted"));
     }
 
     #[test]
     fn debug_delegates_to_display() {
-        let err = WorkflowError::Validation("test".to_string());
-        let debug = format!("{:?}", err);
-        let display = format!("{}", err);
-        assert_eq!(debug, display);
-    }
-
-    #[test]
-    fn from_io_error() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
-        let wf_err: WorkflowError = io_err.into();
-        match wf_err {
-            WorkflowError::FileSystem(msg) => assert!(msg.contains("file not found")),
-            _ => panic!("Expected FileSystem variant")
-        }
-    }
-
-    #[test]
-    fn from_serde_yaml_error() {
-        let yaml_err = serde_yaml::from_str::<String>("{{invalid").unwrap_err();
-        let wf_err: WorkflowError = yaml_err.into();
-        match wf_err {
-            WorkflowError::Serialization(msg) => assert!(!msg.is_empty()),
-            _ => panic!("Expected Serialization variant")
-        }
-    }
-
-    #[test]
-    fn from_serde_json_error() {
-        let json_err = serde_json::from_str::<String>("not json").unwrap_err();
-        let wf_err: WorkflowError = json_err.into();
-        match wf_err {
-            WorkflowError::Serialization(msg) => assert!(!msg.is_empty()),
-            _ => panic!("Expected Serialization variant")
-        }
+        let err: WorkflowError = ValidationError::Other("test".to_string()).into();
+        assert_eq!(format!("{:?}", err), format!("{}", err));
     }
 
     #[test]
     fn clone_preserves_variant() {
-        let err = WorkflowError::Validation("test".to_string());
+        let err = WorkflowError::Execution("test".to_string());
         let cloned = err.clone();
         assert_eq!(format!("{}", err), format!("{}", cloned));
     }

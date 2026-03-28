@@ -7,8 +7,13 @@
 
 use std::collections::HashMap;
 
+const PAGE_SIZE: usize = 10;
+
 use crate::{
-    domain::{error::WorkflowError, workflow::WorkflowArgument},
+    domain::{
+        error::{ValidationError, WorkflowError},
+        workflow::WorkflowArgument
+    },
     port::{executor::CommandExecutor, prompt::UserPrompt},
     t, t_params
 };
@@ -60,7 +65,8 @@ impl ArgumentResolver {
                         Self::resolve_dynamic_enum_argument(arg, enum_command, current_values, prompt, executor).await
                     }
                 } else {
-                    Err(WorkflowError::Validation(t_params!("error_enum_argument_missing_configuration", &[&arg.name])))
+                    Err(ValidationError::Other(t_params!("error_enum_argument_missing_configuration", &[&arg.name]))
+                        .into())
                 }
             }
             ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => {
@@ -81,9 +87,9 @@ impl ArgumentResolver {
         let mut options = vec![custom_option.clone()];
         options.extend(variants.iter().cloned());
 
-        let selection = prompt.select(&prompt_text, options, 10).map_err(|e| {
-            WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
-        })?;
+        let selection = prompt
+            .select(&prompt_text, options, PAGE_SIZE)
+            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
 
         if selection == custom_option { Self::prompt_for_custom_value(&arg.name, prompt) } else { Ok(selection) }
     }
@@ -100,21 +106,20 @@ impl ArgumentResolver {
             if let Some(ref_value) = current_values.get(ref_arg) {
                 enum_command.replace(&format!("{{{{{}}}}}", ref_arg), ref_value)
             } else {
-                return Err(WorkflowError::Validation(t_params!("error_dynamic_resolution_failed", &[ref_arg])));
+                return Err(ValidationError::Other(t_params!("error_dynamic_resolution_failed", &[ref_arg])).into());
             }
         } else {
             enum_command.to_string()
         };
 
-        let output = executor
-            .execute(&resolved_command)
-            .await
-            .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_execute_command", &[&e.to_string()])))?;
+        let output = executor.execute(&resolved_command).await.map_err(|e| {
+            WorkflowError::from(ValidationError::Other(t_params!("error_failed_to_execute_command", &[&e.to_string()])))
+        })?;
 
         let options: Vec<String> = output.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
 
         if options.is_empty() {
-            return Err(WorkflowError::Validation(t_params!("error_no_options_found", &[&arg.name])));
+            return Err(ValidationError::Other(t_params!("error_no_options_found", &[&arg.name])).into());
         }
 
         Ok(options)
@@ -136,9 +141,9 @@ impl ArgumentResolver {
         let mut all_options = vec![custom_option.clone()];
         all_options.extend(options);
 
-        let selection = prompt.select(&prompt_text, all_options, 10).map_err(|e| {
-            WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
-        })?;
+        let selection = prompt
+            .select(&prompt_text, all_options, PAGE_SIZE)
+            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
 
         if selection == custom_option { Self::prompt_for_custom_value(&arg.name, prompt) } else { Ok(selection) }
     }
@@ -152,10 +157,9 @@ impl ArgumentResolver {
         let prompt_text = t_params!("prompt_multi_select", &[&arg.name]);
         let options: Vec<String> = variants.to_vec();
 
-        let selections =
-            prompt.multi_select(&prompt_text, options, 10, arg.min_selections, arg.max_selections).map_err(|e| {
-                WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
-            })?;
+        let selections = prompt
+            .multi_select(&prompt_text, options, PAGE_SIZE, arg.min_selections, arg.max_selections)
+            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
 
         Ok(selections.join(","))
     }
@@ -172,10 +176,9 @@ impl ArgumentResolver {
 
         let prompt_text = t_params!("prompt_multi_select", &[&arg.name]);
 
-        let selections =
-            prompt.multi_select(&prompt_text, options, 10, arg.min_selections, arg.max_selections).map_err(|e| {
-                WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
-            })?;
+        let selections = prompt
+            .multi_select(&prompt_text, options, PAGE_SIZE, arg.min_selections, arg.max_selections)
+            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
 
         Ok(selections.join(","))
     }
@@ -188,7 +191,7 @@ impl ArgumentResolver {
 
         prompt
             .text(&prompt_text, default)
-            .map_err(|e| WorkflowError::Validation(t_params!("error_input_failed", &[&arg.name, &e.to_string()])))
+            .map_err(|e| e.wrap(|msg| ValidationError::InputFailed(arg.name.clone(), msg).into()))
     }
 
     /// Prompt user for a custom value
@@ -196,7 +199,7 @@ impl ArgumentResolver {
         let custom_prompt = t_params!("enum_enter_custom_value", &[arg_name]);
         prompt
             .text(&custom_prompt, None)
-            .map_err(|e| WorkflowError::Validation(t_params!("error_input_failed", &[arg_name, &e.to_string()])))
+            .map_err(|e| e.wrap(|msg| ValidationError::InputFailed(arg_name.to_string(), msg).into()))
     }
 }
 

@@ -69,7 +69,7 @@ use workflow::{
 async fn main() -> Result<(), WorkflowError> {
     let guardian_ref = Guardian::spawn_system()
         .await
-        .map_err(|e| WorkflowError::Generic(format!("Failed to start actor system: {}", e)))?;
+        .map_err(|e| WorkflowError::Other(format!("Failed to start actor system: {}", e)))?;
 
     let cli = WorkflowCli::parse();
     let context = WorkflowContext::new();
@@ -143,7 +143,10 @@ async fn main() -> Result<(), WorkflowError> {
 
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    result
+    match result {
+        Err(WorkflowError::Cancelled) => Ok(()),
+        other => other
+    }
 }
 
 /// Submit a command to the actor system via the Guardian
@@ -161,17 +164,15 @@ async fn submit_command_to_actor_system(
     {
         Ok(CallResult::Success(Ok(()))) => Ok(()),
         Ok(CallResult::Success(Err(e))) => Err(e),
-        Ok(CallResult::Timeout) => Err(WorkflowError::Generic(t!("error_command_processing_timed_out"))),
-        Ok(_) => Err(WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))),
+        Ok(CallResult::Timeout) => Err(WorkflowError::Other(t!("error_command_processing_timed_out"))),
+        Ok(_) => Err(WorkflowError::Other(t!("error_failed_to_send_command_to_actor_system"))),
         Err(e) => {
             let workflow_error = match e {
                 ractor::MessagingErr::SendErr(_) => {
-                    WorkflowError::Generic(t!("error_failed_to_send_command_to_actor_system"))
+                    WorkflowError::Other(t!("error_failed_to_send_command_to_actor_system"))
                 }
-                ractor::MessagingErr::ChannelClosed => WorkflowError::Generic(t!("error_workflow_manager_call_failed")),
-                ractor::MessagingErr::InvalidActorType => {
-                    WorkflowError::Generic(t!("error_actor_system_not_initialized"))
-                }
+                ractor::MessagingErr::ChannelClosed => WorkflowError::Other(t!("error_workflow_manager_call_failed")),
+                ractor::MessagingErr::InvalidActorType => WorkflowError::Other(t!("error_actor_system_not_initialized"))
             };
             Err(workflow_error)
         }

@@ -7,7 +7,7 @@ use crate::{
     domain::{
         command::CompleteWorkflowCommand,
         engine::EngineContext,
-        error::WorkflowError,
+        error::{ValidationError, WorkflowError},
         event::{WorkflowCompletedEvent, WorkflowEvent},
         state::WorkflowState
     },
@@ -22,7 +22,7 @@ pub fn build_completed_event(state: &WorkflowState) -> Result<WorkflowCompletedE
         WorkflowState::WorkflowArgumentsResolved(_) => {
             Ok(WorkflowCompletedEvent { event_id: Uuid::new_v4().to_string(), timestamp: Utc::now() })
         }
-        _ => Err(WorkflowError::Validation(t!("error_no_workflow_ready_to_complete")))
+        _ => Err(ValidationError::InvalidState(t!("error_no_workflow_ready_to_complete")).into())
     }
 }
 
