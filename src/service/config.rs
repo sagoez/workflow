@@ -4,7 +4,7 @@ use directories::ProjectDirs;
 
 use crate::{
     adapter::storage::EventStoreType,
-    domain::error::{StorageError, ValidationError, WorkflowError},
+    domain::error::{StorageError, WorkflowError},
     i18n::Language,
     t
 };
