@@ -1,3 +1,12 @@
+## [unreleased]
+
+### 🐛 Bug Fixes
+
+- Restore docs/ and add RELEASE.md to gitignore
+
+### ⚙️ Miscellaneous Tasks
+
+- Update changelog for v0.3.1
 ## [0.3.1] - 2026-03-28
 
 ### 🚀 Features
