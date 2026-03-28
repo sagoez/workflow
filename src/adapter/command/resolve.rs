@@ -163,6 +163,7 @@ mod tests {
             enum_command:       None,
             enum_variants:      None,
             dynamic_resolution: None,
+            multi:              false,
             min_selections:     None,
             max_selections:     None
         }

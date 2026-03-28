@@ -23,14 +23,30 @@ impl UserPrompt for InquirePrompt {
         prompt: &str,
         options: Vec<String>,
         _page_size: usize,
-        _min: Option<usize>,
-        _max: Option<usize>
+        min: Option<usize>,
+        max: Option<usize>
     ) -> Result<Vec<String>, WorkflowError> {
-        let mut ms = cliclack::multiselect(prompt);
-        for option in &options {
-            ms = ms.item(option.clone(), option, "");
+        loop {
+            let mut ms = cliclack::multiselect(prompt);
+            for option in &options {
+                ms = ms.item(option.clone(), option, "");
+            }
+            let selections: Vec<String> = ms.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))?;
+
+            if let Some(min_val) = min {
+                if selections.len() < min_val {
+                    cliclack::log::warning(format!("Select at least {} item(s)", min_val)).ok();
+                    continue;
+                }
+            }
+            if let Some(max_val) = max {
+                if selections.len() > max_val {
+                    cliclack::log::warning(format!("Select at most {} item(s)", max_val)).ok();
+                    continue;
+                }
+            }
+            return Ok(selections);
         }
-        ms.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 
     fn text(&self, prompt: &str, default: Option<&str>) -> Result<String, WorkflowError> {

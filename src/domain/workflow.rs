@@ -100,9 +100,12 @@ pub struct WorkflowArgument {
     pub enum_variants:      Option<Vec<String>>,
     /// For Enum type: name of the argument to reference for dynamic resolution in enum_command
     pub dynamic_resolution: Option<String>,
-    /// For MultiEnum type: minimum number of selections required
+    /// For Enum: enable multi-select
+    #[serde(default)]
+    pub multi:              bool,
+    /// For Enum with multi: minimum number of selections
     pub min_selections:     Option<usize>,
-    /// For MultiEnum type: maximum number of selections allowed
+    /// For Enum with multi: maximum number of selections
     pub max_selections:     Option<usize>
 }
 
@@ -123,10 +126,8 @@ fn default_arg_type() -> ArgumentType {
 pub enum ArgumentType {
     /// Free text input with optional default value
     Text,
-    /// Selection from dynamically generated list (via command execution)
+    /// Selection from a list (single or multi based on min/max_selections)
     Enum,
-    /// Multi-selection from a list, values joined with comma
-    MultiEnum,
     /// Numeric input with validation
     Number,
     /// Boolean true/false selection
@@ -214,13 +215,7 @@ mod tests {
 
     #[test]
     fn all_arg_types_deserialize() {
-        for (type_str, expected) in [
-            ("Text", "Text"),
-            ("Enum", "Enum"),
-            ("MultiEnum", "MultiEnum"),
-            ("Number", "Number"),
-            ("Boolean", "Boolean")
-        ] {
+        for (type_str, expected) in [("Text", "Text"), ("Enum", "Enum"), ("Number", "Number"), ("Boolean", "Boolean")] {
             let yaml = format!("name: test\narg_type: {}\ndescription: a test", type_str);
             let arg: WorkflowArgument = serde_yaml::from_str(&yaml).unwrap();
             assert_eq!(format!("{:?}", arg.arg_type), expected);
@@ -228,10 +223,10 @@ mod tests {
     }
 
     #[test]
-    fn multi_enum_with_selection_constraints() {
+    fn enum_with_selection_constraints() {
         let yaml = r#"
             name: envs
-            arg_type: MultiEnum
+            arg_type: Enum
             description: "Select envs"
             enum_variants:
               - dev
@@ -241,7 +236,7 @@ mod tests {
             max_selections: 3
         "#;
         let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
-        assert!(matches!(arg.arg_type, ArgumentType::MultiEnum));
+        assert!(matches!(arg.arg_type, ArgumentType::Enum));
         assert_eq!(arg.min_selections, Some(1));
         assert_eq!(arg.max_selections, Some(3));
         assert_eq!(arg.enum_variants.as_ref().unwrap().len(), 3);
@@ -254,6 +249,64 @@ mod tests {
             description: "a test"
         "#;
         let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(arg.min_selections, None);
+        assert_eq!(arg.max_selections, None);
+    }
+
+    #[test]
+    fn multi_defaults_to_false() {
+        let yaml = r#"
+            name: env
+            arg_type: Enum
+            description: "Pick env"
+            enum_variants: ["dev", "prod"]
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(!arg.multi);
+    }
+
+    #[test]
+    fn multi_true_parses_from_yaml() {
+        let yaml = r#"
+            name: services
+            arg_type: Enum
+            multi: true
+            description: "Pick services"
+            enum_variants: ["api", "web", "worker"]
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(arg.multi);
+        assert!(matches!(arg.arg_type, ArgumentType::Enum));
+    }
+
+    #[test]
+    fn multi_with_constraints_parses() {
+        let yaml = r#"
+            name: services
+            arg_type: Enum
+            multi: true
+            description: "Pick services"
+            enum_variants: ["api", "web", "worker"]
+            min_selections: 1
+            max_selections: 2
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(arg.multi);
+        assert_eq!(arg.min_selections, Some(1));
+        assert_eq!(arg.max_selections, Some(2));
+    }
+
+    #[test]
+    fn multi_without_constraints_parses() {
+        let yaml = r#"
+            name: services
+            arg_type: Enum
+            multi: true
+            description: "Pick services"
+            enum_variants: ["api", "web", "worker"]
+        "#;
+        let arg: WorkflowArgument = serde_yaml::from_str(yaml).unwrap();
+        assert!(arg.multi);
         assert_eq!(arg.min_selections, None);
         assert_eq!(arg.max_selections, None);
     }

@@ -44,19 +44,21 @@ impl ArgumentResolver {
 
         match arg.arg_type {
             ArgumentType::Enum => {
+                let multi = arg.multi;
+
                 if let Some(enum_variants) = &arg.enum_variants {
-                    Self::resolve_static_enum_argument(arg, enum_variants, prompt)
+                    if multi {
+                        Self::resolve_static_multi_enum_argument(arg, enum_variants, prompt)
+                    } else {
+                        Self::resolve_static_enum_argument(arg, enum_variants, prompt)
+                    }
                 } else if let (Some(enum_command), Some(_enum_name)) = (&arg.enum_command, &arg.enum_name) {
-                    Self::resolve_dynamic_enum_argument(arg, enum_command, current_values, prompt, executor).await
-                } else {
-                    Err(WorkflowError::Validation(t_params!("error_enum_argument_missing_configuration", &[&arg.name])))
-                }
-            }
-            ArgumentType::MultiEnum => {
-                if let Some(enum_variants) = &arg.enum_variants {
-                    Self::resolve_static_multi_enum_argument(arg, enum_variants, prompt)
-                } else if let (Some(enum_command), Some(_enum_name)) = (&arg.enum_command, &arg.enum_name) {
-                    Self::resolve_dynamic_multi_enum_argument(arg, enum_command, current_values, prompt, executor).await
+                    if multi {
+                        Self::resolve_dynamic_multi_enum_argument(arg, enum_command, current_values, prompt, executor)
+                            .await
+                    } else {
+                        Self::resolve_dynamic_enum_argument(arg, enum_command, current_values, prompt, executor).await
+                    }
                 } else {
                     Err(WorkflowError::Validation(t_params!("error_enum_argument_missing_configuration", &[&arg.name])))
                 }
@@ -219,6 +221,7 @@ mod tests {
             enum_command:       None,
             enum_name:          None,
             dynamic_resolution: None,
+            multi:              false,
             min_selections:     None,
             max_selections:     None
         }
@@ -234,6 +237,7 @@ mod tests {
             enum_command:       None,
             enum_name:          None,
             dynamic_resolution: None,
+            multi:              false,
             min_selections:     None,
             max_selections:     None
         }
@@ -243,12 +247,13 @@ mod tests {
         WorkflowArgument {
             name:               name.to_string(),
             description:        format!("{} description", name),
-            arg_type:           ArgumentType::MultiEnum,
+            arg_type:           ArgumentType::Enum,
             default_value:      None,
             enum_variants:      Some(variants),
             enum_command:       None,
             enum_name:          None,
             dynamic_resolution: None,
+            multi:              true,
             min_selections:     None,
             max_selections:     None
         }
@@ -264,6 +269,7 @@ mod tests {
             enum_command:       Some(command.to_string()),
             enum_name:          Some(enum_name.to_string()),
             dynamic_resolution: None,
+            multi:              false,
             min_selections:     None,
             max_selections:     None
         }
@@ -339,6 +345,7 @@ mod tests {
             enum_command:       None,
             enum_name:          None,
             dynamic_resolution: None,
+            multi:              false,
             min_selections:     None,
             max_selections:     None
         }];
@@ -354,5 +361,76 @@ mod tests {
 
         let result = ArgumentResolver::resolve_workflow_arguments(&[], &prompt, &executor).await.unwrap();
         assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn enum_without_multi_uses_single_select() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Select("prod".to_string())]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![enum_arg("env", vec!["dev".into(), "prod".into()])];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("env").unwrap(), "prod");
+    }
+
+    #[tokio::test]
+    async fn enum_with_multi_uses_multi_select() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec!["api".to_string(), "web".to_string()])]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![multi_enum_arg("services", vec!["api".into(), "web".into(), "worker".into()])];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("services").unwrap(), "api,web");
+    }
+
+    #[tokio::test]
+    async fn enum_multi_without_constraints_works() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+        ])]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![WorkflowArgument {
+            name:               "items".to_string(),
+            description:        "pick items".to_string(),
+            arg_type:           ArgumentType::Enum,
+            default_value:      None,
+            enum_variants:      Some(vec!["a".into(), "b".into(), "c".into()]),
+            enum_command:       None,
+            enum_name:          None,
+            dynamic_resolution: None,
+            multi:              true,
+            min_selections:     None,
+            max_selections:     None
+        }];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("items").unwrap(), "a,b,c");
+    }
+
+    #[tokio::test]
+    async fn enum_multi_dynamic_uses_multi_select() {
+        let prompt =
+            MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec!["ns-a".to_string(), "ns-b".to_string()])]);
+        let mut cmd_responses = HashMap::new();
+        cmd_responses.insert("list-ns".to_string(), Ok("ns-a\nns-b\nns-c\n".to_string()));
+        let executor = MockExecutor::new(cmd_responses);
+        let args = vec![WorkflowArgument {
+            name:               "namespaces".to_string(),
+            description:        "pick namespaces".to_string(),
+            arg_type:           ArgumentType::Enum,
+            default_value:      None,
+            enum_variants:      None,
+            enum_command:       Some("list-ns".to_string()),
+            enum_name:          Some("ns".to_string()),
+            dynamic_resolution: None,
+            multi:              true,
+            min_selections:     None,
+            max_selections:     None
+        }];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("namespaces").unwrap(), "ns-a,ns-b");
     }
 }
