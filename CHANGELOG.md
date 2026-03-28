@@ -1,8 +1,14 @@
 ## [unreleased]
 
+### 🚀 Features
+
+- Add custom changelog timeline component to docs
+
 ### 🐛 Bug Fixes
 
 - Restore docs/ and add RELEASE.md to gitignore
+- *(deps)* Update dependency fumadocs-ui to v16.7.7 (#7)
+- *(deps)* Update dependency fumadocs-core to v16.7.7 (#6)
 
 ### ⚙️ Miscellaneous Tasks
 
