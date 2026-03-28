@@ -2,44 +2,65 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
-/* Smooth page transitions */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes fadeInSlow {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* Content fade-in on page load */
+article,
+[data-docs-body],
+main > div {
+  animation: fadeInUp 0.18s ease-out;
 }
 
-/* Docs page content fade-in */
-[data-docs-body] {
-  animation: fadeIn 0.4s ease-out;
-}
-
-/* Sidebar items slide in */
+/* Sidebar links */
 nav a {
-  transition: all 0.2s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 /* Card hover lift */
-a[class*="card"] {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+a[class*="card"],
+[data-card] {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-a[class*="card"]:hover {
+a[class*="card"]:hover,
+[data-card]:hover {
   transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* TOC smooth transitions */
+/* TOC */
 [data-toc] a {
-  transition: color 0.2s ease, opacity 0.2s ease;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 
-/* Smooth scrollbar */
+/* Code blocks */
+pre {
+  transition: box-shadow 0.2s ease;
+}
+
+pre:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Buttons */
+button, [role="button"] {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+button:active, [role="button"]:active {
+  transform: scale(0.97);
+}
+
+/* Smooth scrolling */
 * {
   scroll-behavior: smooth;
+}
+
+h1, h2, h3, h4 {
+  scroll-margin-top: 5rem;
 }
 
 .dark {
