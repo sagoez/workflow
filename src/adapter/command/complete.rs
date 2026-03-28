@@ -12,7 +12,7 @@ use crate::{
         state::WorkflowState
     },
     port::command::Command,
-    t, t_params
+    t
 };
 
 /// Build a WorkflowCompletedEvent from WorkflowArgumentsResolved state.
@@ -66,14 +66,10 @@ impl Command for CompleteWorkflowCommand {
         _context: &EngineContext,
         _app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowCompleted(state) => {
-                let workflow = &state.completed_workflow;
-                println!("{}", t_params!("cli_completed_workflow", &[&workflow.name]));
-            }
-            _ => {
-                println!("{}", t!("error_no_workflow_completed"));
-            }
+        if let WorkflowState::WorkflowCompleted(_) = current_state {
+            // nothing to print — command was already shown
+        } else {
+            eprintln!("{}", t!("error_no_workflow_completed"));
         }
         Ok(())
     }

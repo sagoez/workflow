@@ -114,25 +114,16 @@ impl Command for ResolveArgumentsCommand {
     ) -> Result<(), Self::Error> {
         match current_state {
             WorkflowState::WorkflowArgumentsResolved(state) => {
-                let workflow = &state.selected_workflow;
-                println!("{}", t_params!("cli_resolved_arguments_for_workflow", &[&workflow.name]));
+                let rendered_command = render_command_template(&state.selected_workflow.command, &state.resolved_arguments)?;
 
-                for (key, value) in &state.resolved_arguments {
-                    println!("  {} = {}", key, value);
-                }
-
-                let rendered_command = render_command_template(&workflow.command, &state.resolved_arguments)?;
-
-                println!("{}", t!("cli_generated_command"));
-                println!("{}", rendered_command);
+                println!("\n  {}\n", rendered_command);
 
                 match super::copy_to_clipboard(&rendered_command) {
                     Ok(()) => {
                         println!("{}", t!("cli_command_copied_to_clipboard"));
-                        println!("{}", t!("cli_command_can_now_be_pasted_and_executed_in_terminal"));
                     }
                     Err(e) => {
-                        println!("{}", t_params!("cli_failed_to_copy_to_clipboard", &[&e.to_string()]));
+                        eprintln!("{}", t_params!("cli_failed_to_copy_to_clipboard", &[&e.to_string()]));
                         println!("{}", t!("cli_command_can_now_be_pasted_and_executed_in_terminal"));
                     }
                 }

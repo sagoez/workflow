@@ -12,7 +12,7 @@ use crate::{
         state::WorkflowState
     },
     port::command::Command,
-    t, t_params
+    t
 };
 
 /// Build a WorkflowStartedEvent from WorkflowSelected state.
@@ -77,16 +77,10 @@ impl Command for StartWorkflowCommand {
         _context: &EngineContext,
         _app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowStarted(state) => {
-                let workflow = &state.selected_workflow;
-                println!("{}", t_params!("cli_starting_workflow", &[&workflow.name]));
-                println!("{}", t_params!("cli_starting_workflow_description", &[&workflow.description]));
-                println!("{}", t_params!("cli_starting_workflow_command", &[&workflow.command]));
-            }
-            _ => {
-                println!("{}", t!("error_no_workflow_started"));
-            }
+        if let WorkflowState::WorkflowStarted(_) = current_state {
+            // nothing to print — prompts follow
+        } else {
+            eprintln!("{}", t!("error_no_workflow_started"));
         }
         Ok(())
     }

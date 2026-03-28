@@ -104,8 +104,6 @@ impl ArgumentResolver {
             enum_command.to_string()
         };
 
-        println!("{}", t_params!("cli_executing_command_short", &[&resolved_command]));
-
         let output = executor.execute(&resolved_command).await.map_err(|e| {
             WorkflowError::Validation(t_params!("error_failed_to_execute_command", &[&e.to_string()]))
         })?;

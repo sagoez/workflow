@@ -80,21 +80,10 @@ impl Command for InteractivelySelectWorkflowCommand {
         _context: &EngineContext,
         _app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        match current_state {
-            WorkflowState::WorkflowSelected(state) => {
-                let workflow = &state.selected_workflow;
-                println!("{}", t_params!("cli_selected_workflow", &[&workflow.name]));
-                println!("{}", t_params!("cli_selected_workflow_description", &[&workflow.description]));
-                if !workflow.arguments.is_empty() {
-                    println!(
-                        "{}",
-                        t_params!("cli_selected_workflow_arguments", &[&workflow.arguments.len().to_string()])
-                    );
-                }
-            }
-            _ => {
-                println!("{}", t!("error_no_workflow_selected"));
-            }
+        if let WorkflowState::WorkflowSelected(_) = current_state {
+            // inquire already shows the selection
+        } else {
+            eprintln!("{}", t!("error_no_workflow_selected"));
         }
         Ok(())
     }
