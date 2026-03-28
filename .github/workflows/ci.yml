@@ -21,7 +21,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y clang llvm-dev libclang-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get update && sudo apt-get install -y clang llvm-dev libclang-dev
 
       - name: Build
         run: cargo build --release
@@ -37,7 +37,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y clang llvm-dev libclang-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get update && sudo apt-get install -y clang llvm-dev libclang-dev
 
       - name: Run tests
         run: cargo test
