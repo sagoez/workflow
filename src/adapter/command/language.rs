@@ -25,8 +25,6 @@ pub fn available_languages() -> Vec<String> {
     vec![Language::English.code().to_string(), Language::Spanish.code().to_string()]
 }
 
-// ==================== SetLanguageCommand ====================
-
 #[async_trait]
 impl Command for SetLanguageCommand {
     type Error = WorkflowError;
@@ -100,8 +98,6 @@ impl Command for SetLanguageCommand {
     }
 }
 
-// ==================== GetCurrentLanguageCommand ====================
-
 #[async_trait]
 impl Command for GetCurrentLanguageCommand {
     type Error = WorkflowError;
@@ -159,8 +155,6 @@ impl Command for GetCurrentLanguageCommand {
         false
     }
 }
-
-// ==================== ListLanguagesCommand ====================
 
 #[async_trait]
 impl Command for ListLanguagesCommand {

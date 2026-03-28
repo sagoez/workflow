@@ -15,9 +15,7 @@ impl UserPrompt for InquirePrompt {
         for option in &options {
             select = select.item(option.clone(), option, "");
         }
-        select
-            .interact()
-            .map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        select.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 
     fn multi_select(
@@ -32,9 +30,7 @@ impl UserPrompt for InquirePrompt {
         for option in &options {
             ms = ms.item(option.clone(), option, "");
         }
-        ms
-            .interact()
-            .map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        ms.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 
     fn text(&self, prompt: &str, default: Option<&str>) -> Result<String, WorkflowError> {
@@ -42,9 +38,7 @@ impl UserPrompt for InquirePrompt {
         if let Some(d) = default {
             input = input.default_input(d);
         }
-        input
-            .interact()
-            .map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        input.interact().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 }
 
@@ -123,10 +117,7 @@ mod tests {
 
     #[test]
     fn mock_prompt_multi_select_returns_scripted_values() {
-        let mock = MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec![
-            "a".to_string(),
-            "c".to_string(),
-        ])]);
+        let mock = MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec!["a".to_string(), "c".to_string()])]);
         let result = mock.multi_select("Pick many", vec!["a".into(), "b".into(), "c".into()], 10, None, None);
         assert_eq!(result.unwrap(), vec!["a", "c"]);
     }
@@ -140,9 +131,8 @@ mod tests {
 
     #[test]
     fn mock_prompt_returns_error() {
-        let mock = MockPrompt::new(vec![MockPromptResponse::Error(
-            WorkflowError::UserInteraction("cancelled".to_string()),
-        )]);
+        let mock =
+            MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::UserInteraction("cancelled".to_string()))]);
         let result = mock.select("Pick", vec!["a".into()], 10);
         assert!(result.is_err());
     }

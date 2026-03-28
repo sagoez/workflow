@@ -236,16 +236,92 @@ mod tests {
         let wf = test_workflow();
 
         let cases: Vec<(WorkflowEvent, &str)> = vec![
-            (WorkflowEvent::WorkflowDiscovered(WorkflowDiscoveredEvent { event_id: id.clone(), timestamp: ts, workflow: wf.clone(), file_path: "f".to_string() }), "WorkflowDiscovered"),
-            (WorkflowEvent::WorkflowSelected(WorkflowSelectedEvent { event_id: id.clone(), timestamp: ts, workflow: wf.clone(), user: "u".to_string() }), "WorkflowSelected"),
-            (WorkflowEvent::WorkflowStarted(WorkflowStartedEvent { event_id: id.clone(), timestamp: ts, user: "u".to_string(), hostname: "h".to_string(), execution_id: "e".to_string() }), "WorkflowStarted"),
-            (WorkflowEvent::WorkflowArgumentsResolved(WorkflowArgumentsResolvedEvent { event_id: id.clone(), timestamp: ts, arguments: HashMap::new() }), "WorkflowArgumentsResolved"),
-            (WorkflowEvent::WorkflowCompleted(WorkflowCompletedEvent { event_id: id.clone(), timestamp: ts }), "WorkflowCompleted"),
-            (WorkflowEvent::AvailableWorkflowsListed(AvailableWorkflowsListedEvent { event_id: id.clone(), timestamp: ts, workflows: vec![] }), "AvailableWorkflowsListed"),
-            (WorkflowEvent::SyncRequested(SyncRequestedEvent { event_id: id.clone(), timestamp: ts, remote_url: "r".to_string(), branch: "b".to_string(), ssh_key: None }), "SyncRequested"),
-            (WorkflowEvent::WorkflowsSynced(WorkflowsSyncedEvent { event_id: id.clone(), timestamp: ts, remote_url: "r".to_string(), branch: "b".to_string(), commit_id: "c".to_string(), synced_count: 0 }), "WorkflowsSynced"),
-            (WorkflowEvent::LanguageSet(LanguageSetEvent { event_id: id.clone(), timestamp: ts, language: "en".to_string() }), "LanguageSet"),
-            (WorkflowEvent::AggregateReplayed(AggregateReplayedEvent { event_id: id.clone(), timestamp: ts, aggregate_id: "a".to_string(), events_count: 0 }), "AggregateReplayed"),
+            (
+                WorkflowEvent::WorkflowDiscovered(WorkflowDiscoveredEvent {
+                    event_id:  id.clone(),
+                    timestamp: ts,
+                    workflow:  wf.clone(),
+                    file_path: "f".to_string()
+                }),
+                "WorkflowDiscovered"
+            ),
+            (
+                WorkflowEvent::WorkflowSelected(WorkflowSelectedEvent {
+                    event_id:  id.clone(),
+                    timestamp: ts,
+                    workflow:  wf.clone(),
+                    user:      "u".to_string()
+                }),
+                "WorkflowSelected"
+            ),
+            (
+                WorkflowEvent::WorkflowStarted(WorkflowStartedEvent {
+                    event_id:     id.clone(),
+                    timestamp:    ts,
+                    user:         "u".to_string(),
+                    hostname:     "h".to_string(),
+                    execution_id: "e".to_string()
+                }),
+                "WorkflowStarted"
+            ),
+            (
+                WorkflowEvent::WorkflowArgumentsResolved(WorkflowArgumentsResolvedEvent {
+                    event_id:  id.clone(),
+                    timestamp: ts,
+                    arguments: HashMap::new()
+                }),
+                "WorkflowArgumentsResolved"
+            ),
+            (
+                WorkflowEvent::WorkflowCompleted(WorkflowCompletedEvent { event_id: id.clone(), timestamp: ts }),
+                "WorkflowCompleted"
+            ),
+            (
+                WorkflowEvent::AvailableWorkflowsListed(AvailableWorkflowsListedEvent {
+                    event_id:  id.clone(),
+                    timestamp: ts,
+                    workflows: vec![]
+                }),
+                "AvailableWorkflowsListed"
+            ),
+            (
+                WorkflowEvent::SyncRequested(SyncRequestedEvent {
+                    event_id:   id.clone(),
+                    timestamp:  ts,
+                    remote_url: "r".to_string(),
+                    branch:     "b".to_string(),
+                    ssh_key:    None
+                }),
+                "SyncRequested"
+            ),
+            (
+                WorkflowEvent::WorkflowsSynced(WorkflowsSyncedEvent {
+                    event_id:     id.clone(),
+                    timestamp:    ts,
+                    remote_url:   "r".to_string(),
+                    branch:       "b".to_string(),
+                    commit_id:    "c".to_string(),
+                    synced_count: 0
+                }),
+                "WorkflowsSynced"
+            ),
+            (
+                WorkflowEvent::LanguageSet(LanguageSetEvent {
+                    event_id:  id.clone(),
+                    timestamp: ts,
+                    language:  "en".to_string()
+                }),
+                "LanguageSet"
+            ),
+            (
+                WorkflowEvent::AggregateReplayed(AggregateReplayedEvent {
+                    event_id:     id.clone(),
+                    timestamp:    ts,
+                    aggregate_id: "a".to_string(),
+                    events_count: 0
+                }),
+                "AggregateReplayed"
+            ),
         ];
 
         for (event, expected) in cases {
@@ -283,11 +359,11 @@ mod tests {
     fn aggregate_event_serialization_roundtrip() {
         let ae = AggregateEvent {
             aggregate_id: Some("agg-1".to_string()),
-            data: WorkflowEvent::WorkflowCompleted(WorkflowCompletedEvent {
+            data:         WorkflowEvent::WorkflowCompleted(WorkflowCompletedEvent {
                 event_id:  "ev-1".to_string(),
                 timestamp: Utc::now()
             }),
-            metadata: Some(EventMetadata::new("workflow-completed"))
+            metadata:     Some(EventMetadata::new("workflow-completed"))
         };
 
         let json = serde_json::to_string(&ae).unwrap();

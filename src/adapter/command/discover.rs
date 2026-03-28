@@ -16,7 +16,10 @@ use crate::{
 
 /// Discover workflow YAML files from a directory using the FileSystem trait.
 /// Returns a sorted list of parsed Workflow objects.
-pub fn discover_workflows(fs: &dyn FileSystem, workflows_dir: &std::path::Path) -> Result<Vec<Workflow>, WorkflowError> {
+pub fn discover_workflows(
+    fs: &dyn FileSystem,
+    workflows_dir: &std::path::Path
+) -> Result<Vec<Workflow>, WorkflowError> {
     if !fs.exists(workflows_dir) {
         return Ok(vec![]);
     }
@@ -122,10 +125,7 @@ mod tests {
     use crate::adapter::filesystem::mock::MockFileSystem;
 
     fn yaml_content(name: &str) -> String {
-        format!(
-            "name: {}\ndescription: test workflow\ncommand: echo hello\narguments: []\ntags: []\nshells: []",
-            name
-        )
+        format!("name: {}\ndescription: test workflow\ncommand: echo hello\narguments: []\ntags: []\nshells: []", name)
     }
 
     #[test]

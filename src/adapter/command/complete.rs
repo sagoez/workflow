@@ -20,10 +20,7 @@ use crate::{
 pub fn build_completed_event(state: &WorkflowState) -> Result<WorkflowCompletedEvent, WorkflowError> {
     match state {
         WorkflowState::WorkflowArgumentsResolved(_) => {
-            Ok(WorkflowCompletedEvent {
-                event_id:  Uuid::new_v4().to_string(),
-                timestamp: Utc::now()
-            })
+            Ok(WorkflowCompletedEvent { event_id: Uuid::new_v4().to_string(), timestamp: Utc::now() })
         }
         _ => Err(WorkflowError::Validation(t!("error_no_workflow_ready_to_complete")))
     }

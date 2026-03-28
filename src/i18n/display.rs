@@ -130,10 +130,7 @@ mod tests {
         es.insert("greeting".to_string(), "Hola {0}!".to_string());
         cache.insert(Language::Spanish, es);
 
-        TextManager {
-            current_language: Language::English,
-            cache
-        }
+        TextManager { current_language: Language::English, cache }
     }
 
     #[test]

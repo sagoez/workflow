@@ -21,9 +21,9 @@ use crate::{
 pub fn select_workflow(prompt: &dyn UserPrompt, workflows: &[Workflow]) -> Result<Workflow, WorkflowError> {
     let options: Vec<String> = workflows.iter().map(|w| w.name.clone()).collect();
 
-    let selected_name = prompt.select(&t!("select_workflow"), options, 10).map_err(|e| {
-        WorkflowError::Validation(t_params!("error_selection_failed", &["workflow", &e.to_string()]))
-    })?;
+    let selected_name = prompt
+        .select(&t!("select_workflow"), options, 10)
+        .map_err(|e| WorkflowError::Validation(t_params!("error_selection_failed", &["workflow", &e.to_string()])))?;
 
     workflows
         .iter()
@@ -136,9 +136,8 @@ mod tests {
     #[test]
     fn returns_error_on_prompt_failure() {
         let workflows = vec![test_workflow("deploy")];
-        let prompt = MockPrompt::new(vec![MockPromptResponse::Error(
-            WorkflowError::UserInteraction("cancelled".to_string()),
-        )]);
+        let prompt =
+            MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::UserInteraction("cancelled".to_string()))]);
 
         let result = select_workflow(&prompt, &workflows);
         assert!(result.is_err());

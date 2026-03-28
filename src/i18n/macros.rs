@@ -5,8 +5,7 @@
 ///
 /// Usage:
 /// ```no_run
-/// use workflow::t;
-/// use workflow::i18n::Language;
+/// use workflow::{i18n::Language, t};
 /// let text = t!("welcome_message");
 /// let text = t!("welcome_message", Language::Spanish);
 /// ```

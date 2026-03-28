@@ -104,15 +104,12 @@ impl ArgumentResolver {
             enum_command.to_string()
         };
 
-        let output = executor.execute(&resolved_command).await.map_err(|e| {
-            WorkflowError::Validation(t_params!("error_failed_to_execute_command", &[&e.to_string()]))
-        })?;
+        let output = executor
+            .execute(&resolved_command)
+            .await
+            .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_execute_command", &[&e.to_string()])))?;
 
-        let options: Vec<String> = output
-            .lines()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
+        let options: Vec<String> = output.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
 
         if options.is_empty() {
             return Err(WorkflowError::Validation(t_params!("error_no_options_found", &[&arg.name])));
@@ -153,9 +150,8 @@ impl ArgumentResolver {
         let prompt_text = t_params!("prompt_multi_select", &[&arg.name]);
         let options: Vec<String> = variants.to_vec();
 
-        let selections = prompt
-            .multi_select(&prompt_text, options, 10, arg.min_selections, arg.max_selections)
-            .map_err(|e| {
+        let selections =
+            prompt.multi_select(&prompt_text, options, 10, arg.min_selections, arg.max_selections).map_err(|e| {
                 WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
             })?;
 
@@ -174,9 +170,8 @@ impl ArgumentResolver {
 
         let prompt_text = t_params!("prompt_multi_select", &[&arg.name]);
 
-        let selections = prompt
-            .multi_select(&prompt_text, options, 10, arg.min_selections, arg.max_selections)
-            .map_err(|e| {
+        let selections =
+            prompt.multi_select(&prompt_text, options, 10, arg.min_selections, arg.max_selections).map_err(|e| {
                 WorkflowError::Validation(t_params!("error_selection_failed", &[&arg.name, &e.to_string()]))
             })?;
 
@@ -187,22 +182,19 @@ impl ArgumentResolver {
     fn resolve_simple_argument(arg: &WorkflowArgument, prompt: &dyn UserPrompt) -> Result<String, WorkflowError> {
         let prompt_text = t_params!("prompt_enter", &[&arg.name]);
 
-        let default = arg
-            .default_value
-            .as_deref()
-            .filter(|d| !d.is_empty() && *d != "~");
+        let default = arg.default_value.as_deref().filter(|d| !d.is_empty() && *d != "~");
 
-        prompt.text(&prompt_text, default).map_err(|e| {
-            WorkflowError::Validation(t_params!("error_input_failed", &[&arg.name, &e.to_string()]))
-        })
+        prompt
+            .text(&prompt_text, default)
+            .map_err(|e| WorkflowError::Validation(t_params!("error_input_failed", &[&arg.name, &e.to_string()])))
     }
 
     /// Prompt user for a custom value
     fn prompt_for_custom_value(arg_name: &str, prompt: &dyn UserPrompt) -> Result<String, WorkflowError> {
         let custom_prompt = t_params!("enum_enter_custom_value", &[arg_name]);
-        prompt.text(&custom_prompt, None).map_err(|e| {
-            WorkflowError::Validation(t_params!("error_input_failed", &[arg_name, &e.to_string()]))
-        })
+        prompt
+            .text(&custom_prompt, None)
+            .map_err(|e| WorkflowError::Validation(t_params!("error_input_failed", &[arg_name, &e.to_string()])))
     }
 }
 
@@ -210,7 +202,10 @@ impl ArgumentResolver {
 mod tests {
     use super::*;
     use crate::{
-        adapter::{executor::mock::MockExecutor, prompt::mock::{MockPrompt, MockPromptResponse}},
+        adapter::{
+            executor::mock::MockExecutor,
+            prompt::mock::{MockPrompt, MockPromptResponse}
+        },
         domain::workflow::{ArgumentType, WorkflowArgument}
     };
 
@@ -225,7 +220,7 @@ mod tests {
             enum_name:          None,
             dynamic_resolution: None,
             min_selections:     None,
-            max_selections:     None,
+            max_selections:     None
         }
     }
 
@@ -240,7 +235,7 @@ mod tests {
             enum_name:          None,
             dynamic_resolution: None,
             min_selections:     None,
-            max_selections:     None,
+            max_selections:     None
         }
     }
 
@@ -255,7 +250,7 @@ mod tests {
             enum_name:          None,
             dynamic_resolution: None,
             min_selections:     None,
-            max_selections:     None,
+            max_selections:     None
         }
     }
 
@@ -270,7 +265,7 @@ mod tests {
             enum_name:          Some(enum_name.to_string()),
             dynamic_resolution: None,
             min_selections:     None,
-            max_selections:     None,
+            max_selections:     None
         }
     }
 
@@ -296,10 +291,8 @@ mod tests {
 
     #[tokio::test]
     async fn resolve_static_multi_enum_argument() {
-        let prompt = MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec![
-            "feat-a".to_string(),
-            "feat-c".to_string(),
-        ])]);
+        let prompt =
+            MockPrompt::new(vec![MockPromptResponse::MultiSelect(vec!["feat-a".to_string(), "feat-c".to_string()])]);
         let executor = MockExecutor::new(HashMap::new());
         let args = vec![multi_enum_arg("features", vec!["feat-a".into(), "feat-b".into(), "feat-c".into()])];
 
@@ -326,10 +319,7 @@ mod tests {
             MockPromptResponse::Select("prod".to_string()),
         ]);
         let executor = MockExecutor::new(HashMap::new());
-        let args = vec![
-            text_arg("name"),
-            enum_arg("env", vec!["dev".into(), "prod".into()]),
-        ];
+        let args = vec![text_arg("name"), enum_arg("env", vec!["dev".into(), "prod".into()])];
 
         let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
         assert_eq!(result.get("name").unwrap(), "my-project");
@@ -350,7 +340,7 @@ mod tests {
             enum_name:          None,
             dynamic_resolution: None,
             min_selections:     None,
-            max_selections:     None,
+            max_selections:     None
         }];
 
         let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await;

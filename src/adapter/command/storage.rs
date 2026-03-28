@@ -14,8 +14,6 @@ use crate::{
     t_params
 };
 
-// ==================== SetStorageCommand ====================
-
 #[async_trait]
 impl Command for SetStorageCommand {
     type Error = WorkflowError;
@@ -73,8 +71,6 @@ impl Command for SetStorageCommand {
         true
     }
 }
-
-// ==================== GetCurrentStorageCommand ====================
 
 #[async_trait]
 impl Command for GetCurrentStorageCommand {

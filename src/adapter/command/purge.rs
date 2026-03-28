@@ -5,7 +5,10 @@ use async_trait::async_trait;
 use crate::{
     AppContext,
     adapter::storage::EventStoreType,
-    domain::{command::PurgeStorageCommand, engine::EngineContext, error::WorkflowError, event::WorkflowEvent, state::WorkflowState},
+    domain::{
+        command::PurgeStorageCommand, engine::EngineContext, error::WorkflowError, event::WorkflowEvent,
+        state::WorkflowState
+    },
     port::{command::Command, filesystem::FileSystem},
     t
 };

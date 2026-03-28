@@ -18,9 +18,7 @@ use crate::{
 /// Returns names from WorkflowsDiscovered, empty vec from Initial, error otherwise.
 pub fn list_workflow_names(state: &WorkflowState) -> Result<Vec<String>, WorkflowError> {
     match state {
-        WorkflowState::WorkflowsDiscovered(s) => {
-            Ok(s.discovered_workflows.iter().map(|w| w.name.clone()).collect())
-        }
+        WorkflowState::WorkflowsDiscovered(s) => Ok(s.discovered_workflows.iter().map(|w| w.name.clone()).collect()),
         WorkflowState::Initial(_) => Ok(vec![]),
         _ => Err(WorkflowError::Validation(t!("error_workflows_not_discovered_yet")))
     }

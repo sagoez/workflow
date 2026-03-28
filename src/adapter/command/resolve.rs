@@ -35,10 +35,7 @@ pub fn validate_all_resolved(
 
 /// Render a command template with resolved arguments using Tera.
 /// Replaces `{{ var }}` placeholders with their values.
-pub fn render_command_template(
-    template: &str,
-    resolved: &HashMap<String, String>
-) -> Result<String, WorkflowError> {
+pub fn render_command_template(template: &str, resolved: &HashMap<String, String>) -> Result<String, WorkflowError> {
     let mut tera = tera::Tera::default();
     let mut context = tera::Context::new();
 
@@ -46,9 +43,8 @@ pub fn render_command_template(
         context.insert(key, value);
     }
 
-    tera.render_str(template, &context).map_err(|e| {
-        WorkflowError::Validation(t_params!("error_failed_to_render_command_template", &[&e.to_string()]))
-    })
+    tera.render_str(template, &context)
+        .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_render_command_template", &[&e.to_string()])))
 }
 
 #[async_trait]
@@ -67,14 +63,13 @@ impl Command for ResolveArgumentsCommand {
             _ => return Err(WorkflowError::Validation(t!("error_no_workflow_started_to_resolve_arguments")))
         };
 
-        let resolved_arguments =
-            ArgumentResolver::resolve_workflow_arguments(
-                &workflow.arguments,
-                &*app_context.prompt,
-                &*app_context.executor
-            ).await.map_err(|e| {
-                WorkflowError::Validation(t_params!("error_failed_to_resolve_arguments", &[&e.to_string()]))
-            })?;
+        let resolved_arguments = ArgumentResolver::resolve_workflow_arguments(
+            &workflow.arguments,
+            &*app_context.prompt,
+            &*app_context.executor
+        )
+        .await
+        .map_err(|e| WorkflowError::Validation(t_params!("error_failed_to_resolve_arguments", &[&e.to_string()])))?;
 
         Ok(ResolveArgumentsData { workflow, resolved_arguments })
     }
@@ -114,7 +109,8 @@ impl Command for ResolveArgumentsCommand {
     ) -> Result<(), Self::Error> {
         match current_state {
             WorkflowState::WorkflowArgumentsResolved(state) => {
-                let rendered_command = render_command_template(&state.selected_workflow.command, &state.resolved_arguments)?;
+                let rendered_command =
+                    render_command_template(&state.selected_workflow.command, &state.resolved_arguments)?;
 
                 println!("\n  {}\n", rendered_command);
 

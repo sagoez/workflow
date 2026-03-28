@@ -66,6 +66,7 @@ impl LanguageLoader {
     ///
     /// ```rust,no_run
     /// use std::path::PathBuf;
+    ///
     /// use workflow::i18n::{Language, loader::LanguageLoader};
     /// let config_dir = PathBuf::from("/path/to/config");
     /// let loader = LanguageLoader::new(config_dir);

@@ -15,17 +15,16 @@ impl ShellExecutor {
 #[async_trait]
 impl CommandExecutor for ShellExecutor {
     async fn execute(&self, command: &str) -> Result<String, WorkflowError> {
-        let output = TokioCommand::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .await
-            .map_err(|e| WorkflowError::Execution(t_params!("error_failed_to_execute_command", &[&e.to_string()])))?;
+        let output =
+            TokioCommand::new("sh").arg("-c").arg(command).output().await.map_err(|e| {
+                WorkflowError::Execution(t_params!("error_failed_to_execute_command", &[&e.to_string()]))
+            })?;
 
         if !output.status.success() {
-            return Err(WorkflowError::Execution(
-                t_params!("error_command_failed", &[&String::from_utf8_lossy(&output.stderr)])
-            ));
+            return Err(WorkflowError::Execution(t_params!(
+                "error_command_failed",
+                &[&String::from_utf8_lossy(&output.stderr)]
+            )));
         }
 
         String::from_utf8(output.stdout)
@@ -81,10 +80,7 @@ mod tests {
     #[tokio::test]
     async fn mock_executor_returns_configured_error() {
         let mut responses = HashMap::new();
-        responses.insert(
-            "fail-cmd".to_string(),
-            Err(WorkflowError::Execution("command failed".to_string())),
-        );
+        responses.insert("fail-cmd".to_string(), Err(WorkflowError::Execution("command failed".to_string())));
         let mock = MockExecutor::new(responses);
         let result = mock.execute("fail-cmd").await;
         assert!(result.is_err());

@@ -31,14 +31,9 @@ pub fn count_workflow_files(fs: &dyn FileSystem, dir: &Path) -> Result<u32, Work
     }
 
     let entries = fs.read_dir_entries(dir)?;
-    let count = entries
-        .iter()
-        .filter(|p| {
-            p.extension()
-                .map(|ext| ext == "yaml" || ext == "yml")
-                .unwrap_or(false)
-        })
-        .count() as u32;
+    let count =
+        entries.iter().filter(|p| p.extension().map(|ext| ext == "yaml" || ext == "yml").unwrap_or(false)).count()
+            as u32;
 
     Ok(count)
 }

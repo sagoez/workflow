@@ -60,17 +60,11 @@ pub mod mock {
 
     impl MockFileSystem {
         pub fn new() -> Self {
-            Self {
-                files: Mutex::new(HashMap::new()),
-                dirs:  Mutex::new(Vec::new())
-            }
+            Self { files: Mutex::new(HashMap::new()), dirs: Mutex::new(Vec::new()) }
         }
 
         pub fn with_files(files: HashMap<PathBuf, String>) -> Self {
-            Self {
-                files: Mutex::new(files),
-                dirs:  Mutex::new(Vec::new())
-            }
+            Self { files: Mutex::new(files), dirs: Mutex::new(Vec::new()) }
         }
     }
 
@@ -119,11 +113,7 @@ pub mod mock {
 
         fn read_dir_entries(&self, path: &Path) -> Result<Vec<PathBuf>, WorkflowError> {
             let files = self.files.lock().unwrap();
-            let entries: Vec<PathBuf> = files
-                .keys()
-                .filter(|p| p.parent() == Some(path))
-                .cloned()
-                .collect();
+            let entries: Vec<PathBuf> = files.keys().filter(|p| p.parent() == Some(path)).cloned().collect();
             Ok(entries)
         }
     }

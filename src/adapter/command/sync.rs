@@ -21,20 +21,10 @@ pub struct SyncWorkflowsData {
 }
 
 /// Prepare sync data, applying default remote URL if none provided.
-pub fn prepare_sync_data(
-    remote_url: Option<&str>,
-    branch: &str,
-    ssh_key: Option<&str>
-) -> SyncWorkflowsData {
-    let remote_url = remote_url
-        .unwrap_or("https://github.com/sagoez/workflow-vault.git")
-        .to_string();
+pub fn prepare_sync_data(remote_url: Option<&str>, branch: &str, ssh_key: Option<&str>) -> SyncWorkflowsData {
+    let remote_url = remote_url.unwrap_or("https://github.com/sagoez/workflow-vault.git").to_string();
 
-    SyncWorkflowsData {
-        remote_url,
-        branch: branch.to_string(),
-        ssh_key: ssh_key.map(|s| s.to_string())
-    }
+    SyncWorkflowsData { remote_url, branch: branch.to_string(), ssh_key: ssh_key.map(|s| s.to_string()) }
 }
 
 #[async_trait::async_trait]
@@ -48,11 +38,7 @@ impl Command for SyncWorkflowsCommand {
         _app_context: &AppContext,
         _current_state: &WorkflowState
     ) -> Result<Self::LoadedData, Self::Error> {
-        Ok(prepare_sync_data(
-            self.remote_url.as_deref(),
-            &self.branch,
-            self.ssh_key.as_deref()
-        ))
+        Ok(prepare_sync_data(self.remote_url.as_deref(), &self.branch, self.ssh_key.as_deref()))
     }
 
     fn validate(&self, _loaded_data: &Self::LoadedData) -> Result<(), Self::Error> {
@@ -125,11 +111,7 @@ mod tests {
 
     #[test]
     fn prepare_data_uses_explicit_url_and_ssh_key() {
-        let data = prepare_sync_data(
-            Some("git@github.com:user/repo.git"),
-            "develop",
-            Some("/path/to/key")
-        );
+        let data = prepare_sync_data(Some("git@github.com:user/repo.git"), "develop", Some("/path/to/key"));
         assert_eq!(data.remote_url, "git@github.com:user/repo.git");
         assert_eq!(data.branch, "develop");
         assert_eq!(data.ssh_key.as_deref(), Some("/path/to/key"));

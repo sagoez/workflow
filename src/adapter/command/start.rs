@@ -23,15 +23,13 @@ pub fn build_started_event(
     hostname: &str
 ) -> Result<WorkflowStartedEvent, WorkflowError> {
     match state {
-        WorkflowState::WorkflowSelected(_) => {
-            Ok(WorkflowStartedEvent {
-                event_id:     Uuid::new_v4().to_string(),
-                timestamp:    Utc::now(),
-                user:         user.to_string(),
-                hostname:     hostname.to_string(),
-                execution_id: Uuid::new_v4().to_string()
-            })
-        }
+        WorkflowState::WorkflowSelected(_) => Ok(WorkflowStartedEvent {
+            event_id:     Uuid::new_v4().to_string(),
+            timestamp:    Utc::now(),
+            user:         user.to_string(),
+            hostname:     hostname.to_string(),
+            execution_id: Uuid::new_v4().to_string()
+        }),
         _ => Err(WorkflowError::Validation(t!("error_no_workflow_selected_to_start")))
     }
 }
@@ -61,11 +59,8 @@ impl Command for StartWorkflowCommand {
         _app_context: &AppContext,
         current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, Self::Error> {
-        let event = build_started_event(
-            current_state,
-            &context.workflow_context.user,
-            &context.workflow_context.hostname
-        )?;
+        let event =
+            build_started_event(current_state, &context.workflow_context.user, &context.workflow_context.hostname)?;
         Ok(vec![WorkflowEvent::WorkflowStarted(event)])
     }
 

@@ -501,11 +501,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
-        domain::{
-            event::*,
-            state::*,
-            workflow::Workflow
-        },
+        domain::{event::*, state::*, workflow::Workflow},
         port::event::Event
     };
 
@@ -732,10 +728,7 @@ mod tests {
 
     #[test]
     fn completed_from_resolved() {
-        let event = WorkflowCompletedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: Utc::now()
-        };
+        let event = WorkflowCompletedEvent { event_id: Uuid::new_v4().to_string(), timestamp: Utc::now() };
         let result = event.apply(Some(&resolved_state())).unwrap();
         match result {
             WorkflowState::WorkflowCompleted(s) => {
@@ -749,10 +742,7 @@ mod tests {
 
     #[test]
     fn completed_from_invalid_state_returns_none() {
-        let event = WorkflowCompletedEvent {
-            event_id:  Uuid::new_v4().to_string(),
-            timestamp: Utc::now()
-        };
+        let event = WorkflowCompletedEvent { event_id: Uuid::new_v4().to_string(), timestamp: Utc::now() };
         assert!(event.apply(Some(&started_state())).is_none());
     }
 
@@ -891,16 +881,84 @@ mod tests {
         let ts = Utc::now();
         let id = Uuid::new_v4().to_string();
 
-        assert_eq!(WorkflowDiscoveredEvent { event_id: id.clone(), timestamp: ts, workflow: test_workflow(), file_path: "f".to_string() }.event_type(), "workflow-discovered");
-        assert_eq!(WorkflowSelectedEvent { event_id: id.clone(), timestamp: ts, workflow: test_workflow(), user: "u".to_string() }.event_type(), "workflow-selected");
-        assert_eq!(WorkflowStartedEvent { event_id: id.clone(), timestamp: ts, user: "u".to_string(), hostname: "h".to_string(), execution_id: "e".to_string() }.event_type(), "workflow-started");
-        assert_eq!(WorkflowArgumentsResolvedEvent { event_id: id.clone(), timestamp: ts, arguments: HashMap::new() }.event_type(), "workflow-arguments-resolved");
+        assert_eq!(
+            WorkflowDiscoveredEvent {
+                event_id:  id.clone(),
+                timestamp: ts,
+                workflow:  test_workflow(),
+                file_path: "f".to_string()
+            }
+            .event_type(),
+            "workflow-discovered"
+        );
+        assert_eq!(
+            WorkflowSelectedEvent {
+                event_id:  id.clone(),
+                timestamp: ts,
+                workflow:  test_workflow(),
+                user:      "u".to_string()
+            }
+            .event_type(),
+            "workflow-selected"
+        );
+        assert_eq!(
+            WorkflowStartedEvent {
+                event_id:     id.clone(),
+                timestamp:    ts,
+                user:         "u".to_string(),
+                hostname:     "h".to_string(),
+                execution_id: "e".to_string()
+            }
+            .event_type(),
+            "workflow-started"
+        );
+        assert_eq!(
+            WorkflowArgumentsResolvedEvent { event_id: id.clone(), timestamp: ts, arguments: HashMap::new() }
+                .event_type(),
+            "workflow-arguments-resolved"
+        );
         assert_eq!(WorkflowCompletedEvent { event_id: id.clone(), timestamp: ts }.event_type(), "workflow-completed");
-        assert_eq!(AvailableWorkflowsListedEvent { event_id: id.clone(), timestamp: ts, workflows: vec![] }.event_type(), "available-workflows-listed");
-        assert_eq!(SyncRequestedEvent { event_id: id.clone(), timestamp: ts, remote_url: "r".to_string(), branch: "b".to_string(), ssh_key: None }.event_type(), "SyncRequested");
-        assert_eq!(WorkflowsSyncedEvent { event_id: id.clone(), timestamp: ts, remote_url: "r".to_string(), branch: "b".to_string(), commit_id: "c".to_string(), synced_count: 0 }.event_type(), "workflows-synced");
-        assert_eq!(LanguageSetEvent { event_id: id.clone(), timestamp: ts, language: "en".to_string() }.event_type(), "language-set");
-        assert_eq!(AggregateReplayedEvent { event_id: id.clone(), timestamp: ts, aggregate_id: "a".to_string(), events_count: 0 }.event_type(), "AggregateReplayed");
+        assert_eq!(
+            AvailableWorkflowsListedEvent { event_id: id.clone(), timestamp: ts, workflows: vec![] }.event_type(),
+            "available-workflows-listed"
+        );
+        assert_eq!(
+            SyncRequestedEvent {
+                event_id:   id.clone(),
+                timestamp:  ts,
+                remote_url: "r".to_string(),
+                branch:     "b".to_string(),
+                ssh_key:    None
+            }
+            .event_type(),
+            "SyncRequested"
+        );
+        assert_eq!(
+            WorkflowsSyncedEvent {
+                event_id:     id.clone(),
+                timestamp:    ts,
+                remote_url:   "r".to_string(),
+                branch:       "b".to_string(),
+                commit_id:    "c".to_string(),
+                synced_count: 0
+            }
+            .event_type(),
+            "workflows-synced"
+        );
+        assert_eq!(
+            LanguageSetEvent { event_id: id.clone(), timestamp: ts, language: "en".to_string() }.event_type(),
+            "language-set"
+        );
+        assert_eq!(
+            AggregateReplayedEvent {
+                event_id:     id.clone(),
+                timestamp:    ts,
+                aggregate_id: "a".to_string(),
+                events_count: 0
+            }
+            .event_type(),
+            "AggregateReplayed"
+        );
     }
 
     #[test]

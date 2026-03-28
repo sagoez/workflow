@@ -219,7 +219,7 @@ mod tests {
             ("Enum", "Enum"),
             ("MultiEnum", "MultiEnum"),
             ("Number", "Number"),
-            ("Boolean", "Boolean"),
+            ("Boolean", "Boolean")
         ] {
             let yaml = format!("name: test\narg_type: {}\ndescription: a test", type_str);
             let arg: WorkflowArgument = serde_yaml::from_str(&yaml).unwrap();
