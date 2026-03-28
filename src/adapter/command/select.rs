@@ -7,7 +7,7 @@ use crate::{
     domain::{
         command::{InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData},
         engine::EngineContext,
-        error::{PromptError, ValidationError, WorkflowError},
+        error::{ValidationError, WorkflowError},
         event::{WorkflowEvent, WorkflowSelectedEvent},
         state::WorkflowState,
         workflow::Workflow
@@ -109,6 +109,7 @@ impl Command for InteractivelySelectWorkflowCommand {
 mod tests {
     use super::*;
     use crate::adapter::prompt::mock::{MockPrompt, MockPromptResponse};
+    use crate::domain::error::PromptError;
 
     fn test_workflow(name: &str) -> Workflow {
         Workflow {
