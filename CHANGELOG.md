@@ -1,9 +1,23 @@
 ## [unreleased]
 
+### 🚀 Features
+
+- Geist font, polished homepage, subtle page transitions
+- Restore AI copy/view buttons on docs pages
+- Add Copy AI prompt button to workflows page
+
 ### 🐛 Bug Fixes
 
 - Add write permissions to release workflow
 - Restore changelog component and update README
+- Regenerate changelog and switch docs to Geist font
+
+### 🚜 Refactor
+
+- Remove MultiEnum type, use Enum with multi field
+- Rename InquirePrompt to CliPrompt
+- Typed sub-errors with thiserror, Cancelled variant, wrap()
+- Eliminate Other catch-all from typed errors
 
 ### ⚙️ Miscellaneous Tasks
 
