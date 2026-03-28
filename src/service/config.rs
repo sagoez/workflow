@@ -93,7 +93,7 @@ impl AppConfig {
         if storage_file.exists() {
             let content = fs::read_to_string(&storage_file)
                 .map_err(|e| StorageError::Io(format!("Failed to read storage config: {}", e)))?;
-            EventStoreType::from_str(content.trim()).map_err(|e| WorkflowError::from(ValidationError::Other(e)))
+            EventStoreType::from_str(content.trim()).map_err(|e| WorkflowError::Config(e))
         } else {
             Ok(EventStoreType::InMemory)
         }

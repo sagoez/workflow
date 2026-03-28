@@ -154,8 +154,12 @@ impl GitClient for Git2Client {
             .map_err(|e| WorkflowError::Config(format!("Failed to open repository: {}", e)))?;
 
         let commit = if let Some(id) = commit_id {
-            let oid = git2::Oid::from_str(id)
-                .map_err(|e| WorkflowError::from(ValidationError::Other(format!("Invalid commit ID: {}", e))))?;
+            let oid = git2::Oid::from_str(id).map_err(|e| {
+                WorkflowError::from(ValidationError::InvalidState(t_params!(
+                    "error_invalid_commit_id",
+                    &[&e.to_string()]
+                )))
+            })?;
             repo.find_commit(oid).map_err(|e| WorkflowError::Network(format!("Failed to find commit: {}", e)))?
         } else {
             let head = repo.head().map_err(|e| WorkflowError::Network(format!("Failed to get HEAD: {}", e)))?;

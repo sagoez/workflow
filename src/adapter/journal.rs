@@ -18,7 +18,7 @@ use crate::{
         event::{AggregateEvent, EventMetadata, WorkflowEvent}
     },
     port::journal::Journal,
-    t
+    t, t_params
 };
 
 /// In-Memory Journal Implementation
@@ -141,7 +141,7 @@ impl RocksDbJournal {
             Ok(())
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to create snapshot: {}", e)))??;
+        .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to create snapshot: {}", e))))??;
 
         Ok(())
     }
@@ -186,7 +186,7 @@ impl Journal for RocksDbJournal {
             Ok(())
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to persist journal events: {}", e)))??;
+        .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to persist journal events: {}", e))))??;
 
         let sequence = self.highest_sequence_nr(session_id).await?;
         if sequence % self.snapshot_threshold == 0 {
@@ -207,7 +207,7 @@ impl Journal for RocksDbJournal {
                 }
             })
             .await
-            .map_err(|e| WorkflowError::Other(format!("Failed to read events: {}", e)))??;
+            .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to read events: {}", e))))??;
 
             self.create_snapshot(session_id, sequence, &all_events).await?;
         }
@@ -245,7 +245,7 @@ impl Journal for RocksDbJournal {
             Ok(None)
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to find snapshot: {}", e)))??;
+        .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to find snapshot: {}", e))))??;
 
         let skip_until = snapshot_sequence.unwrap_or(0).max(from_sequence);
 
@@ -267,7 +267,7 @@ impl Journal for RocksDbJournal {
             }
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to replay journal events: {}", e)))?
+        .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to replay journal events: {}", e))))?
     }
 
     async fn highest_sequence_nr(&self, session_id: &str) -> Result<u64, WorkflowError> {
@@ -289,7 +289,7 @@ impl Journal for RocksDbJournal {
             }
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to get sequence number: {}", e)))?
+        .map_err(|e| WorkflowError::Storage(StorageError::Io(format!("Failed to get sequence number: {}", e))))?
     }
 
     async fn delete_events(&self, session_id: &str, to_sequence: u64) -> Result<(), WorkflowError> {
@@ -325,7 +325,12 @@ impl Journal for RocksDbJournal {
             Ok(())
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to delete journal events: {}", e)))?
+        .map_err(|e| {
+            WorkflowError::Storage(StorageError::Io(t_params!(
+                "error_failed_to_delete_journal_events",
+                &[&e.to_string()]
+            )))
+        })?
     }
 }
 
@@ -343,7 +348,7 @@ impl JournalFactory {
             JournalType::InMemory => Ok(Arc::new(InMemoryJournal::new())),
             JournalType::RocksDb => {
                 let db =
-                    EventStoreFactory::get_db().ok_or(WorkflowError::Other(t!("error_rocksdb_not_initialized")))?;
+                    EventStoreFactory::get_db().ok_or(WorkflowError::Config(t!("error_rocksdb_not_initialized")))?;
                 Ok(Arc::new(RocksDbJournal::new(db)))
             }
         }

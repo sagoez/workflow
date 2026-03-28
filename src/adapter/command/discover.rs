@@ -11,7 +11,8 @@ use crate::{
         state::WorkflowState,
         workflow::Workflow
     },
-    port::{command::Command, filesystem::FileSystem}
+    port::{command::Command, filesystem::FileSystem},
+    t_params
 };
 
 /// Discover workflow YAML files from a directory using the FileSystem trait.
@@ -56,9 +57,13 @@ impl Command for DiscoverWorkflowsCommand {
         let workflows_dir = app_context.config.workflows_dir.clone();
         let fs = app_context.filesystem.clone();
 
-        let workflows = tokio::task::spawn_blocking(move || discover_workflows(&*fs, &workflows_dir))
-            .await
-            .map_err(|e| WorkflowError::Other(format!("Failed to discover workflows: {}", e)))??;
+        let workflows =
+            tokio::task::spawn_blocking(move || discover_workflows(&*fs, &workflows_dir)).await.map_err(|e| {
+                WorkflowError::Storage(StorageError::Io(t_params!(
+                    "error_failed_to_discover_workflows",
+                    &[&e.to_string()]
+                )))
+            })??;
 
         Ok(DiscoverWorkflowsData { workflows })
     }

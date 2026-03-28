@@ -65,8 +65,7 @@ impl ArgumentResolver {
                         Self::resolve_dynamic_enum_argument(arg, enum_command, current_values, prompt, executor).await
                     }
                 } else {
-                    Err(ValidationError::Other(t_params!("error_enum_argument_missing_configuration", &[&arg.name]))
-                        .into())
+                    Err(ValidationError::EnumMissingConfig(arg.name.clone()).into())
                 }
             }
             ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => {
@@ -106,20 +105,21 @@ impl ArgumentResolver {
             if let Some(ref_value) = current_values.get(ref_arg) {
                 enum_command.replace(&format!("{{{{{}}}}}", ref_arg), ref_value)
             } else {
-                return Err(ValidationError::Other(t_params!("error_dynamic_resolution_failed", &[ref_arg])).into());
+                return Err(ValidationError::DynamicResolutionFailed(ref_arg.clone()).into());
             }
         } else {
             enum_command.to_string()
         };
 
-        let output = executor.execute(&resolved_command).await.map_err(|e| {
-            WorkflowError::from(ValidationError::Other(t_params!("error_failed_to_execute_command", &[&e.to_string()])))
-        })?;
+        let output = executor
+            .execute(&resolved_command)
+            .await
+            .map_err(|e| WorkflowError::Execution(t_params!("error_failed_to_execute_command", &[&e.to_string()])))?;
 
         let options: Vec<String> = output.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
 
         if options.is_empty() {
-            return Err(ValidationError::Other(t_params!("error_no_options_found", &[&arg.name])).into());
+            return Err(ValidationError::NoOptionsFound(arg.name.clone()).into());
         }
 
         Ok(options)

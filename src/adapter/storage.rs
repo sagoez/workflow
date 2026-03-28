@@ -16,7 +16,7 @@ use crate::{
         state::WorkflowState
     },
     port::{event::Event, storage::EventStore},
-    t
+    t, t_params
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, clap::ValueEnum)]
@@ -369,7 +369,9 @@ impl RocksDbEventStore {
             }
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to read events: {}", e)))?
+        .map_err(|e| {
+            WorkflowError::Storage(StorageError::Io(t_params!("error_failed_to_read_events", &[&e.to_string()])))
+        })?
     }
 }
 
@@ -418,7 +420,9 @@ impl EventStore for RocksDbEventStore {
             Ok(aggregate_ids.into_iter().collect())
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to list aggregates: {}", e)))?
+        .map_err(|e| {
+            WorkflowError::Storage(StorageError::Io(t_params!("error_failed_to_list_aggregates", &[&e.to_string()])))
+        })?
     }
 
     async fn delete_aggregate(&self, aggregate_id: &str) -> Result<(), WorkflowError> {
@@ -430,7 +434,9 @@ impl EventStore for RocksDbEventStore {
                 .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to delete from RocksDB: {}", e))))
         })
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to delete aggregate: {}", e)))??;
+        .map_err(|e| {
+            WorkflowError::Storage(StorageError::Io(t_params!("error_failed_to_delete_aggregate", &[&e.to_string()])))
+        })??;
 
         let mut cache = self.cache.write().await;
         cache.remove(aggregate_id);
@@ -450,7 +456,7 @@ impl EventStoreFactory {
         match store_type {
             EventStoreType::InMemory => Ok(Arc::new(InMemoryEventStore::new())),
             EventStoreType::RocksDb => {
-                let path = db_path.ok_or(WorkflowError::Other(t!("error_rocksdb_path_required")))?;
+                let path = db_path.ok_or(WorkflowError::Config(t!("error_rocksdb_path_required")))?;
 
                 let db = DB_INSTANCE.get_or_try_init(|| {
                     let mut opts = Options::default();

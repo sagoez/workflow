@@ -49,13 +49,13 @@ impl Engine for EngineV1 {
         current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, WorkflowError> {
         command.validate(loaded_data).map_err(|e| {
-            WorkflowError::from(ValidationError::Other(t_params!("validation_phase_failed", &[&e.to_string()])))
+            e.wrap(|msg| ValidationError::InvalidState(t_params!("validation_phase_failed", &[&msg])).into())
         })?;
 
         let events = command
             .emit(loaded_data, context, &self.app_context, current_state)
             .await
-            .map_err(|e| WorkflowError::Other(t_params!("emit_phase_failed", &[&e.to_string()])))?;
+            .map_err(|e| WorkflowError::Execution(t_params!("emit_phase_failed", &[&e.to_string()])))?;
 
         Ok(events)
     }
@@ -68,9 +68,9 @@ impl Engine for EngineV1 {
         let mut state = current_state.clone();
 
         for event in events {
-            state = event
-                .apply(Some(&state))
-                .ok_or_else(|| WorkflowError::Other(t_params!("failed_to_apply_event", &[&format!("{:?}", event)])))?;
+            state = event.apply(Some(&state)).ok_or_else(|| {
+                WorkflowError::Execution(t_params!("failed_to_apply_event", &[&format!("{:?}", event)]))
+            })?;
         }
 
         Ok(state)

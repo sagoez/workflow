@@ -6,11 +6,14 @@ use crate::{
     AppContext,
     adapter::storage::EventStoreType,
     domain::{
-        command::PurgeStorageCommand, engine::EngineContext, error::WorkflowError, event::WorkflowEvent,
+        command::PurgeStorageCommand,
+        engine::EngineContext,
+        error::{StorageError, WorkflowError},
+        event::WorkflowEvent,
         state::WorkflowState
     },
     port::{command::Command, filesystem::FileSystem},
-    t
+    t, t_params
 };
 
 /// Purge the database directory using the FileSystem trait.
@@ -70,9 +73,9 @@ impl Command for PurgeStorageCommand {
 
         drop(app_context.event_store.clone());
 
-        tokio::task::spawn_blocking(move || purge_database(&*fs, &db_path))
-            .await
-            .map_err(|e| WorkflowError::Other(format!("Failed to purge storage: {}", e)))??;
+        tokio::task::spawn_blocking(move || purge_database(&*fs, &db_path)).await.map_err(|e| {
+            WorkflowError::Storage(StorageError::Io(t_params!("error_failed_to_purge_storage", &[&e.to_string()])))
+        })??;
 
         println!("{}", t!("storage_purge_success"));
         Ok(())

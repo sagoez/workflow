@@ -10,6 +10,9 @@ pub enum ValidationError {
     ArgumentNotResolved(String),
     SelectionFailed(String, String),
     InputFailed(String, String),
+    EnumMissingConfig(String),
+    DynamicResolutionFailed(String),
+    NoOptionsFound(String),
     Other(String)
 }
 
@@ -25,6 +28,15 @@ impl fmt::Display for ValidationError {
             }
             Self::InputFailed(target, msg) => {
                 write!(f, "{}", t_params!("error_input_failed", &[target, msg]))
+            }
+            Self::EnumMissingConfig(name) => {
+                write!(f, "{}", t_params!("error_enum_argument_missing_configuration", &[name]))
+            }
+            Self::DynamicResolutionFailed(name) => {
+                write!(f, "{}", t_params!("error_dynamic_resolution_failed", &[name]))
+            }
+            Self::NoOptionsFound(name) => {
+                write!(f, "{}", t_params!("error_no_options_found", &[name]))
             }
             Self::Other(msg) => write!(f, "{}", t_params!("error_validation", &[msg]))
         }
@@ -43,7 +55,7 @@ impl fmt::Display for StorageError {
         match self {
             Self::Io(msg) => write!(f, "{}", t_params!("error_file_system", &[msg])),
             Self::Serialization(msg) => write!(f, "{}", t_params!("error_serialization", &[msg])),
-            Self::NotFound(msg) => write!(f, "{}", msg)
+            Self::NotFound(id) => write!(f, "{}", t_params!("storage_aggregate_not_found", &[id]))
         }
     }
 }

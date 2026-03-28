@@ -44,7 +44,7 @@ pub fn render_command_template(template: &str, resolved: &HashMap<String, String
     }
 
     tera.render_str(template, &context).map_err(|e| {
-        WorkflowError::from(ValidationError::Other(t_params!(
+        WorkflowError::from(ValidationError::InvalidState(t_params!(
             "error_failed_to_render_command_template",
             &[&e.to_string()]
         )))
@@ -74,10 +74,7 @@ impl Command for ResolveArgumentsCommand {
         )
         .await
         .map_err(|e| {
-            WorkflowError::from(ValidationError::Other(t_params!(
-                "error_failed_to_resolve_arguments",
-                &[&e.to_string()]
-            )))
+            e.wrap(|msg| ValidationError::InvalidState(t_params!("error_failed_to_resolve_arguments", &[&msg])).into())
         })?;
 
         Ok(ResolveArgumentsData { workflow, resolved_arguments })

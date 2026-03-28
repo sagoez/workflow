@@ -2,7 +2,8 @@ use ractor::ActorRef;
 
 use crate::{
     actor::message::CommandProcessorMessage,
-    domain::{command::WorkflowCommand, error::WorkflowError, workflow::WorkflowContext}
+    domain::{command::WorkflowCommand, error::WorkflowError, workflow::WorkflowContext},
+    t_params
 };
 
 /// Engine execution context that provides commands access to workflow metadata
@@ -19,8 +20,8 @@ impl EngineContext {
     }
 
     pub async fn schedule_command(&self, command: WorkflowCommand) -> Result<(), WorkflowError> {
-        self.processor_ref
-            .cast(CommandProcessorMessage::ScheduleCommand { command })
-            .map_err(|e| WorkflowError::Other(format!("Failed to schedule command: {:?}", e)))
+        self.processor_ref.cast(CommandProcessorMessage::ScheduleCommand { command }).map_err(|e| {
+            WorkflowError::Execution(t_params!("error_failed_to_schedule_command", &[&format!("{:?}", e)]))
+        })
     }
 }

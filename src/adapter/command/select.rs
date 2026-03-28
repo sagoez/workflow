@@ -13,7 +13,7 @@ use crate::{
         workflow::Workflow
     },
     port::{command::Command, prompt::UserPrompt},
-    t
+    t, t_params
 };
 
 /// Select a workflow from a list using the UserPrompt trait.
@@ -29,7 +29,7 @@ pub fn select_workflow(prompt: &dyn UserPrompt, workflows: &[Workflow]) -> Resul
         .iter()
         .find(|w| w.name == selected_name)
         .cloned()
-        .ok_or_else(|| ValidationError::Other(format!("Workflow '{}' not found", selected_name)).into())
+        .ok_or_else(|| ValidationError::InvalidState(t_params!("error_workflow_not_found", &[&selected_name])).into())
 }
 
 #[async_trait]

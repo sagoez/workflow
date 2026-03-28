@@ -69,7 +69,7 @@ use workflow::{
 async fn main() -> Result<(), WorkflowError> {
     let guardian_ref = Guardian::spawn_system()
         .await
-        .map_err(|e| WorkflowError::Other(format!("Failed to start actor system: {}", e)))?;
+        .map_err(|e| WorkflowError::Execution(t_params!("error_failed_to_start_actor_system", &[&e.to_string()])))?;
 
     let cli = WorkflowCli::parse();
     let context = WorkflowContext::new();
