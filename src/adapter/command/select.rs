@@ -108,8 +108,10 @@ impl Command for InteractivelySelectWorkflowCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapter::prompt::mock::{MockPrompt, MockPromptResponse};
-    use crate::domain::error::PromptError;
+    use crate::{
+        adapter::prompt::mock::{MockPrompt, MockPromptResponse},
+        domain::error::PromptError
+    };
 
     fn test_workflow(name: &str) -> Workflow {
         Workflow {
