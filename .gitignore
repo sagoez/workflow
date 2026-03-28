@@ -23,4 +23,5 @@ target
 
 .DS_Store
 
-docs/RELEASE.md
+docs/
+RELEASE.md
