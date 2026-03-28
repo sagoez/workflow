@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use clipboard::ClipboardProvider;
 
 use crate::{
     AppContext,
@@ -156,9 +155,10 @@ impl_command!(WorkflowCommand {
 
 /// Helper function to copy text to clipboard
 fn copy_to_clipboard(text: &str) -> Result<(), WorkflowError> {
-    let mut ctx = clipboard::ClipboardContext::new()
+    let mut clipboard = arboard::Clipboard::new()
         .map_err(|e| WorkflowError::Other(t_params!("error_failed_to_create_clipboard_context", &[&e.to_string()])))?;
-    ctx.set_contents(text.to_owned())
+    clipboard
+        .set_text(text.to_owned())
         .map_err(|e| WorkflowError::Other(t_params!("error_failed_to_set_clipboard_contents", &[&e.to_string()])))?;
     Ok(())
 }
