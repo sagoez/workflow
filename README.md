@@ -5,6 +5,8 @@
 
 A terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowledge-and-collaboration/warp-drive/workflows). Define parameterized commands in YAML, resolve arguments interactively, and get the final command copied to your clipboard — ready to paste.
 
+[Documentation](https://wf.sagoez.com) | [Workflow Vault](https://vault.sagoez.com)
+
 > Built with event sourcing, CQRS, hexagonal architecture, and an actor model — because I wanted to learn all of that and needed an excuse to build something. You could do this in 50 lines of bash. But your bash script wouldn't have an actor model.
 
 ## Quick Start
@@ -53,6 +55,7 @@ arguments:
 |------|-------------|
 | `Text` | Free text input (default) |
 | `Enum` | Select from static variants or dynamically generated via shell command |
+| `MultiEnum` | Select multiple from a list (joined with `,`) |
 | `Number` | Numeric input |
 | `Boolean` | True/false |
 
@@ -83,7 +86,8 @@ wf                  # Interactive workflow selection (default)
 wf --list           # List all available workflows
 
 # Sync workflows from a remote Git repo
-wf sync --ssh-key ~/.ssh/id_rsa --remote-url git@github.com:user/workflows.git --branch main
+wf sync --remote-url https://github.com/user/workflows.git --branch main
+wf sync --ssh-key ~/.ssh/id_rsa --remote-url git@github.com:user/workflows.git
 
 # Language
 wf lang set en      # Set language (en, es)
@@ -94,7 +98,9 @@ wf lang list        # List available languages
 wf storage set rocksdb   # Switch to persistent storage
 wf storage set inmemory  # Switch to in-memory storage
 wf storage current       # Show current backend
+wf storage list          # List all workflow sessions
 wf storage replay <id>   # Replay events for a workflow
+wf storage delete <id>   # Delete a specific session
 wf storage purge         # Clear all stored events
 ```
 
