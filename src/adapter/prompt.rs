@@ -1,6 +1,6 @@
 use crate::{domain::error::WorkflowError, port::prompt::UserPrompt};
 
-/// Real implementation wrapping the `inquire` crate
+/// Real implementation wrapping the `cliclack` crate
 pub struct InquirePrompt;
 
 impl InquirePrompt {
@@ -10,10 +10,13 @@ impl InquirePrompt {
 }
 
 impl UserPrompt for InquirePrompt {
-    fn select(&self, prompt: &str, options: Vec<String>, page_size: usize) -> Result<String, WorkflowError> {
-        inquire::Select::new(prompt, options)
-            .with_page_size(page_size)
-            .prompt()
+    fn select(&self, prompt: &str, options: Vec<String>, _page_size: usize) -> Result<String, WorkflowError> {
+        let mut select = cliclack::select(prompt);
+        for option in &options {
+            select = select.item(option.clone(), option, "");
+        }
+        select
+            .interact()
             .map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 
@@ -21,45 +24,27 @@ impl UserPrompt for InquirePrompt {
         &self,
         prompt: &str,
         options: Vec<String>,
-        page_size: usize,
-        min: Option<usize>,
-        max: Option<usize>
+        _page_size: usize,
+        _min: Option<usize>,
+        _max: Option<usize>
     ) -> Result<Vec<String>, WorkflowError> {
-        let mut ms = inquire::MultiSelect::new(prompt, options).with_page_size(page_size);
-
-        if let Some(min_val) = min {
-            ms = ms.with_validator(move |selections: &[inquire::list_option::ListOption<&String>]| {
-                if selections.len() < min_val {
-                    Ok(inquire::validator::Validation::Invalid(
-                        format!("Select at least {} item(s)", min_val).into(),
-                    ))
-                } else {
-                    Ok(inquire::validator::Validation::Valid)
-                }
-            });
+        let mut ms = cliclack::multiselect(prompt);
+        for option in &options {
+            ms = ms.item(option.clone(), option, "");
         }
-
-        if let Some(max_val) = max {
-            ms = ms.with_validator(move |selections: &[inquire::list_option::ListOption<&String>]| {
-                if selections.len() > max_val {
-                    Ok(inquire::validator::Validation::Invalid(
-                        format!("Select at most {} item(s)", max_val).into(),
-                    ))
-                } else {
-                    Ok(inquire::validator::Validation::Valid)
-                }
-            });
-        }
-
-        ms.prompt().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        ms
+            .interact()
+            .map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 
     fn text(&self, prompt: &str, default: Option<&str>) -> Result<String, WorkflowError> {
-        let mut text_input = inquire::Text::new(prompt);
+        let mut input: cliclack::Input = cliclack::input(prompt);
         if let Some(d) = default {
-            text_input = text_input.with_default(d);
+            input = input.default_input(d);
         }
-        text_input.prompt().map_err(|e| WorkflowError::UserInteraction(e.to_string()))
+        input
+            .interact()
+            .map_err(|e| WorkflowError::UserInteraction(e.to_string()))
     }
 }
 
