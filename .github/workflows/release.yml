@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    name: "wf::release"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check version change
+        id: version
+        run: |
+          NEW=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          OLD=$(git show HEAD~1:Cargo.toml | grep '^version' | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ "$NEW" != "$OLD" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "version=$NEW" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install git-cliff
+        if: steps.version.outputs.changed == 'true'
+        run: cargo install git-cliff
+
+      - name: Generate release notes
+        if: steps.version.outputs.changed == 'true'
+        id: notes
+        run: |
+          git cliff --latest --strip header > /tmp/release-notes.md
+
+      - name: Create release
+        if: steps.version.outputs.changed == 'true'
+        run: gh release create "v${{ steps.version.outputs.version }}" --title "v${{ steps.version.outputs.version }}" --notes-file /tmp/release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
