@@ -148,6 +148,16 @@ impl EventStore for InMemoryEventStore {
         let event_store = self.events.read().await;
         Ok(event_store.keys().cloned().collect())
     }
+
+    async fn delete_aggregate(&self, aggregate_id: &str) -> Result<(), WorkflowError> {
+        let mut event_store = self.events.write().await;
+        event_store.remove(aggregate_id);
+        drop(event_store);
+
+        let mut cache = self.cache.write().await;
+        cache.remove(aggregate_id);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -410,6 +420,22 @@ impl EventStore for RocksDbEventStore {
         })
         .await
         .map_err(|e| WorkflowError::Generic(format!("Failed to list aggregates: {}", e)))?
+    }
+
+    async fn delete_aggregate(&self, aggregate_id: &str) -> Result<(), WorkflowError> {
+        let db = self.db.clone();
+        let key = format!("journal:{}", aggregate_id);
+
+        tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
+            db.delete(key.as_bytes())
+                .map_err(|e| WorkflowError::FileSystem(format!("Failed to delete from RocksDB: {}", e)))
+        })
+        .await
+        .map_err(|e| WorkflowError::Generic(format!("Failed to delete aggregate: {}", e)))??;
+
+        let mut cache = self.cache.write().await;
+        cache.remove(aggregate_id);
+        Ok(())
     }
 }
 

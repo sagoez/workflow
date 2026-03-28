@@ -16,6 +16,9 @@ pub trait EventStore: Send + Sync {
 
     /// List all aggregate IDs
     async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError>;
+
+    /// Delete all events for a specific aggregate
+    async fn delete_aggregate(&self, aggregate_id: &str) -> Result<(), WorkflowError>;
 }
 
 /// Port for state restoration from events

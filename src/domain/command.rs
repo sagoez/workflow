@@ -81,6 +81,11 @@ pub enum StorageCommands {
         /// Aggregate ID to replay
         aggregate_id: String
     },
+    /// Delete a specific aggregate
+    Delete {
+        /// Aggregate ID to delete
+        aggregate_id: String
+    },
     /// Purge all data from storage
     Purge
 }
@@ -158,6 +163,11 @@ pub struct ReplayAggregateCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct DeleteAggregateCommand {
+    pub aggregate_id: String
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PurgeStorageCommand;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -184,6 +194,7 @@ pub enum WorkflowCommand {
     GetCurrentStorage(GetCurrentStorageCommand),
     ListAggregates(ListAggregatesCommand),
     ReplayAggregate(ReplayAggregateCommand),
+    DeleteAggregate(DeleteAggregateCommand),
     PurgeStorage(PurgeStorageCommand)
 }
 
@@ -232,6 +243,12 @@ impl From<ListAggregatesCommand> for WorkflowCommand {
 impl From<ReplayAggregateCommand> for WorkflowCommand {
     fn from(val: ReplayAggregateCommand) -> Self {
         WorkflowCommand::ReplayAggregate(val)
+    }
+}
+
+impl From<DeleteAggregateCommand> for WorkflowCommand {
+    fn from(val: DeleteAggregateCommand) -> Self {
+        WorkflowCommand::DeleteAggregate(val)
     }
 }
 

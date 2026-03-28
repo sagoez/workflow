@@ -4,10 +4,7 @@ use clipboard::ClipboardProvider;
 use crate::{
     AppContext,
     domain::{
-        command::WorkflowCommand,
-        engine::EngineContext,
-        error::WorkflowError,
-        event::WorkflowEvent,
+        command::WorkflowCommand, engine::EngineContext, error::WorkflowError, event::WorkflowEvent,
         state::WorkflowState
     },
     port::command::Command,
@@ -153,6 +150,7 @@ impl_command!(WorkflowCommand {
     GetCurrentStorage(cmd),
     ListAggregates(cmd),
     ReplayAggregate(cmd),
+    DeleteAggregate(cmd),
     PurgeStorage(cmd)
 });
 

@@ -53,11 +53,11 @@ use workflow::{
     actor::{Guardian, GuardianMessage},
     domain::{
         command::{
-            CompleteWorkflowCommand, DiscoverWorkflowsCommand, GetCurrentLanguageCommand, GetCurrentStorageCommand,
-            InteractivelySelectWorkflowCommand, LangCommands, ListAggregatesCommand, ListLanguagesCommand,
-            ListWorkflowsCommand, PurgeStorageCommand, ReplayAggregateCommand, ResolveArgumentsCommand,
-            SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, StorageCommands, SyncWorkflowsCommand,
-            WorkflowCli, WorkflowCliCommand, WorkflowCommand
+            CompleteWorkflowCommand, DeleteAggregateCommand, DiscoverWorkflowsCommand, GetCurrentLanguageCommand,
+            GetCurrentStorageCommand, InteractivelySelectWorkflowCommand, LangCommands, ListAggregatesCommand,
+            ListLanguagesCommand, ListWorkflowsCommand, PurgeStorageCommand, ReplayAggregateCommand,
+            ResolveArgumentsCommand, SetLanguageCommand, SetStorageCommand, StartWorkflowCommand, StorageCommands,
+            SyncWorkflowsCommand, WorkflowCli, WorkflowCliCommand, WorkflowCommand
         },
         error::WorkflowError,
         workflow::WorkflowContext
@@ -107,6 +107,10 @@ async fn main() -> Result<(), WorkflowError> {
             }
             StorageCommands::Replay { aggregate_id } => {
                 submit_command_to_actor_system(&guardian_ref, ReplayAggregateCommand { aggregate_id }.into(), context)
+                    .await
+            }
+            StorageCommands::Delete { aggregate_id } => {
+                submit_command_to_actor_system(&guardian_ref, DeleteAggregateCommand { aggregate_id }.into(), context)
                     .await
             }
             StorageCommands::Purge => {
