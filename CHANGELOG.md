@@ -1,4 +1,4 @@
-## [unreleased]
+## [0.3.1] - 2026-03-28
 
 ### 🚀 Features
 
@@ -29,6 +29,7 @@
 - Restructure docs and add OpenGraph images
 - Switch to cliclack for polished CLI prompts
 - Improve storage UX — base62 IDs, table list, delete command
+- Add changelog generation and GitHub release workflow
 
 ### 🐛 Bug Fixes
 
