@@ -3,6 +3,15 @@ use crate::{
     port::prompt::UserPrompt
 };
 
+fn handle_interact_result<T>(result: Result<T, std::io::Error>) -> Result<T, WorkflowError> {
+    result.map_err(|e| {
+        if e.kind() == std::io::ErrorKind::Interrupted {
+            std::process::exit(0);
+        }
+        WorkflowError::from(PromptError::Interaction(e.to_string()))
+    })
+}
+
 /// Real implementation wrapping the `cliclack` crate
 pub struct CliPrompt;
 
@@ -18,7 +27,7 @@ impl UserPrompt for CliPrompt {
         for option in &options {
             select = select.item(option.clone(), option, "");
         }
-        select.interact().map_err(|e| WorkflowError::from(PromptError::Interaction(e.to_string())))
+        handle_interact_result(select.interact())
     }
 
     fn multi_select(
@@ -34,8 +43,7 @@ impl UserPrompt for CliPrompt {
             for option in &options {
                 ms = ms.item(option.clone(), option, "");
             }
-            let selections: Vec<String> =
-                ms.interact().map_err(|e| WorkflowError::from(PromptError::Interaction(e.to_string())))?;
+            let selections: Vec<String> = handle_interact_result(ms.interact())?;
 
             if let Some(min_val) = min {
                 if selections.len() < min_val {
@@ -58,7 +66,7 @@ impl UserPrompt for CliPrompt {
         if let Some(d) = default {
             input = input.default_input(d);
         }
-        input.interact().map_err(|e| WorkflowError::from(PromptError::Interaction(e.to_string())))
+        handle_interact_result(input.interact())
     }
 }
 
