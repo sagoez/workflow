@@ -12,3 +12,5 @@ pub use guardian::*;
 pub use manager::*;
 pub use message::*;
 pub use processor::*;
+
+pub const CANCELLED_SENTINEL: &str = "__cancelled__";
