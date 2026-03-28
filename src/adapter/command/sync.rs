@@ -80,7 +80,7 @@ impl Command for SyncWorkflowsCommand {
                 let commit_id =
                     app_context.git_client.clone_repository(&state.remote_url, workflows_dir, &clone_options).await?;
 
-                println!("✅ {}", t_params!("cli_sync_completed", &[&state.remote_url]));
+                println!("{}", t_params!("cli_sync_completed", &[&state.remote_url]));
 
                 let record_sync_result_command = RecordSyncResultCommand { commit_id: commit_id.clone() };
                 context.schedule_command(record_sync_result_command.into()).await?;
