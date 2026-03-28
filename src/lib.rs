@@ -8,7 +8,7 @@ pub mod service;
 use std::sync::Arc;
 
 use crate::{
-    adapter::{executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, prompt::InquirePrompt},
+    adapter::{executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, prompt::CliPrompt},
     domain::error::WorkflowError,
     i18n::display::TextManager,
     port::{executor::CommandExecutor, filesystem::FileSystem, git::GitClient, prompt::UserPrompt},
@@ -53,7 +53,7 @@ impl AppContext {
         let event_store =
             crate::adapter::storage::EventStoreFactory::create(config.storage_type, Some(&config.database_path))?;
 
-        let prompt = Arc::new(InquirePrompt::new()) as Arc<dyn UserPrompt>;
+        let prompt = Arc::new(CliPrompt::new()) as Arc<dyn UserPrompt>;
         let executor = Arc::new(ShellExecutor::new()) as Arc<dyn CommandExecutor>;
         let filesystem = Arc::new(StdFileSystem::new()) as Arc<dyn FileSystem>;
 

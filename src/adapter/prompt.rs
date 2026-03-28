@@ -1,15 +1,15 @@
 use crate::{domain::error::WorkflowError, port::prompt::UserPrompt};
 
 /// Real implementation wrapping the `cliclack` crate
-pub struct InquirePrompt;
+pub struct CliPrompt;
 
-impl InquirePrompt {
+impl CliPrompt {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl UserPrompt for InquirePrompt {
+impl UserPrompt for CliPrompt {
     fn select(&self, prompt: &str, options: Vec<String>, _page_size: usize) -> Result<String, WorkflowError> {
         let mut select = cliclack::select(prompt);
         for option in &options {
