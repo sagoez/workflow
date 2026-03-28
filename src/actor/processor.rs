@@ -11,7 +11,7 @@ use tracing::{Level, event};
 
 use crate::{
     AppContext,
-    actor::{CANCELLED_SENTINEL, message::CommandProcessorMessage},
+    actor::message::CommandProcessorMessage,
     domain::{
         command::WorkflowCommand, constant::command_processor, engine::EngineContext, error::WorkflowError,
         state::WorkflowState, workflow::WorkflowContext
@@ -111,7 +111,6 @@ impl CommandProcessor {
                        session_id = %state.session_id, command = %command.name());
                 Ok(())
             }
-            Err(WorkflowError::Cancelled) => Err(ActorProcessingErr::from(CANCELLED_SENTINEL)),
             Err(e) => {
                 event!(Level::ERROR, event = command_processor::COMMAND_FAILED,
                        session_id = %state.session_id, command = %command.name(), error = %e);

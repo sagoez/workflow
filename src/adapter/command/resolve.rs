@@ -74,7 +74,10 @@ impl Command for ResolveArgumentsCommand {
         )
         .await
         .map_err(|e| {
-            e.wrap(|msg| ValidationError::InvalidState(t_params!("error_failed_to_resolve_arguments", &[&msg])).into())
+            WorkflowError::from(ValidationError::InvalidState(t_params!(
+                "error_failed_to_resolve_arguments",
+                &[&e.to_string()]
+            )))
         })?;
 
         Ok(ResolveArgumentsData { workflow, resolved_arguments })

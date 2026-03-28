@@ -78,7 +78,6 @@ pub enum WorkflowError {
     Validation(ValidationError),
     Storage(StorageError),
     Prompt(PromptError),
-    Cancelled,
     Execution(String),
     Network(String),
     Spawn(String),
@@ -88,15 +87,6 @@ pub enum WorkflowError {
 }
 
 impl std::error::Error for WorkflowError {}
-
-impl WorkflowError {
-    pub fn wrap(self, f: impl FnOnce(String) -> WorkflowError) -> WorkflowError {
-        match self {
-            WorkflowError::Cancelled => WorkflowError::Cancelled,
-            other => f(other.to_string())
-        }
-    }
-}
 
 impl From<ValidationError> for WorkflowError {
     fn from(err: ValidationError) -> Self {
@@ -122,7 +112,6 @@ impl fmt::Display for WorkflowError {
             Self::Validation(e) => write!(f, "{}", e),
             Self::Storage(e) => write!(f, "{}", e),
             Self::Prompt(e) => write!(f, "{}", e),
-            Self::Cancelled => Ok(()),
             Self::Execution(msg) => write!(f, "{}", t_params!("error_execution", &[msg])),
             Self::Network(msg) => write!(f, "{}", t_params!("error_network", &[msg])),
             Self::Spawn(msg) => write!(f, "{}", t_params!("error_spawn", &[msg])),
@@ -180,18 +169,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cancelled_variant_exists() {
-        let err = WorkflowError::Cancelled;
-        assert!(matches!(err, WorkflowError::Cancelled));
-    }
-
-    #[test]
-    fn cancelled_display_is_empty() {
-        let err = WorkflowError::Cancelled;
-        assert_eq!(format!("{}", err), "");
-    }
-
-    #[test]
     fn validation_from_converts() {
         let v = ValidationError::ArgumentNotResolved("port".to_string());
         let err: WorkflowError = v.into();
@@ -239,7 +216,6 @@ mod tests {
             ValidationError::Other("bad".to_string()).into(),
             StorageError::Io("disk".to_string()).into(),
             PromptError::Interaction("cancelled".to_string()).into(),
-            WorkflowError::Cancelled,
             WorkflowError::Execution("failed".to_string()),
             WorkflowError::Network("timeout".to_string()),
             WorkflowError::Spawn("failed".to_string()),

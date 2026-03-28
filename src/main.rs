@@ -67,6 +67,8 @@ use workflow::{
 
 #[tokio::main]
 async fn main() -> Result<(), WorkflowError> {
+    ctrlc::set_handler(|| std::process::exit(0)).ok();
+
     let guardian_ref = Guardian::spawn_system()
         .await
         .map_err(|e| WorkflowError::Execution(t_params!("error_failed_to_start_actor_system", &[&e.to_string()])))?;
@@ -143,10 +145,7 @@ async fn main() -> Result<(), WorkflowError> {
 
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    match result {
-        Err(WorkflowError::Cancelled) => Ok(()),
-        other => other
-    }
+    result
 }
 
 /// Submit a command to the actor system via the Guardian

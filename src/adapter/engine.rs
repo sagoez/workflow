@@ -49,7 +49,7 @@ impl Engine for EngineV1 {
         current_state: &WorkflowState
     ) -> Result<Vec<WorkflowEvent>, WorkflowError> {
         command.validate(loaded_data).map_err(|e| {
-            e.wrap(|msg| ValidationError::InvalidState(t_params!("validation_phase_failed", &[&msg])).into())
+            WorkflowError::from(ValidationError::InvalidState(t_params!("validation_phase_failed", &[&e.to_string()])))
         })?;
 
         let events = command

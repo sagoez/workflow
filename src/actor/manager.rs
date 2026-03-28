@@ -18,7 +18,6 @@ use tracing::{Level, event};
 use crate::{
     AppContext,
     actor::{
-        CANCELLED_SENTINEL,
         message::{CommandProcessorMessage, WorkflowManagerMessage},
         processor::CommandProcessor
     },
@@ -83,7 +82,6 @@ impl Actor for WorkflowManager {
                 let result = self.handle_submit_command(myself, command, *context, state).await;
                 let response = match &result {
                     Ok(_) => Ok(()),
-                    Err(e) if e.to_string().contains(CANCELLED_SENTINEL) => Err(WorkflowError::Cancelled),
                     Err(e) => Err(WorkflowError::Execution(e.to_string()))
                 };
                 if let Err(e) = reply.send(response) {

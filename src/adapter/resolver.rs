@@ -88,7 +88,7 @@ impl ArgumentResolver {
 
         let selection = prompt
             .select(&prompt_text, options, PAGE_SIZE)
-            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
+            .map_err(|e| WorkflowError::from(ValidationError::SelectionFailed(arg.name.clone(), e.to_string())))?;
 
         if selection == custom_option { Self::prompt_for_custom_value(&arg.name, prompt) } else { Ok(selection) }
     }
@@ -143,7 +143,7 @@ impl ArgumentResolver {
 
         let selection = prompt
             .select(&prompt_text, all_options, PAGE_SIZE)
-            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
+            .map_err(|e| WorkflowError::from(ValidationError::SelectionFailed(arg.name.clone(), e.to_string())))?;
 
         if selection == custom_option { Self::prompt_for_custom_value(&arg.name, prompt) } else { Ok(selection) }
     }
@@ -159,7 +159,7 @@ impl ArgumentResolver {
 
         let selections = prompt
             .multi_select(&prompt_text, options, PAGE_SIZE, arg.min_selections, arg.max_selections)
-            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
+            .map_err(|e| WorkflowError::from(ValidationError::SelectionFailed(arg.name.clone(), e.to_string())))?;
 
         Ok(selections.join(","))
     }
@@ -178,7 +178,7 @@ impl ArgumentResolver {
 
         let selections = prompt
             .multi_select(&prompt_text, options, PAGE_SIZE, arg.min_selections, arg.max_selections)
-            .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed(arg.name.clone(), msg).into()))?;
+            .map_err(|e| WorkflowError::from(ValidationError::SelectionFailed(arg.name.clone(), e.to_string())))?;
 
         Ok(selections.join(","))
     }
@@ -191,7 +191,7 @@ impl ArgumentResolver {
 
         prompt
             .text(&prompt_text, default)
-            .map_err(|e| e.wrap(|msg| ValidationError::InputFailed(arg.name.clone(), msg).into()))
+            .map_err(|e| WorkflowError::from(ValidationError::InputFailed(arg.name.clone(), e.to_string())))
     }
 
     /// Prompt user for a custom value
@@ -199,7 +199,7 @@ impl ArgumentResolver {
         let custom_prompt = t_params!("enum_enter_custom_value", &[arg_name]);
         prompt
             .text(&custom_prompt, None)
-            .map_err(|e| e.wrap(|msg| ValidationError::InputFailed(arg_name.to_string(), msg).into()))
+            .map_err(|e| ValidationError::InputFailed(arg_name.to_string(), e.to_string()).into())
     }
 }
 

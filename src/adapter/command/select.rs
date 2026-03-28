@@ -7,7 +7,7 @@ use crate::{
     domain::{
         command::{InteractivelySelectWorkflowCommand, InteractivelySelectWorkflowData},
         engine::EngineContext,
-        error::{ValidationError, WorkflowError},
+        error::{PromptError, ValidationError, WorkflowError},
         event::{WorkflowEvent, WorkflowSelectedEvent},
         state::WorkflowState,
         workflow::Workflow
@@ -23,7 +23,7 @@ pub fn select_workflow(prompt: &dyn UserPrompt, workflows: &[Workflow]) -> Resul
 
     let selected_name = prompt
         .select(&t!("select_workflow"), options, 10)
-        .map_err(|e| e.wrap(|msg| ValidationError::SelectionFailed("workflow".to_string(), msg).into()))?;
+        .map_err(|e| ValidationError::SelectionFailed("workflow".to_string(), e.to_string()))?;
 
     workflows
         .iter()
@@ -136,7 +136,8 @@ mod tests {
     #[test]
     fn returns_error_on_prompt_failure() {
         let workflows = vec![test_workflow("deploy")];
-        let prompt = MockPrompt::new(vec![MockPromptResponse::Error(WorkflowError::Cancelled)]);
+        let prompt =
+            MockPrompt::new(vec![MockPromptResponse::Error(PromptError::Interaction("cancelled".to_string()).into())]);
 
         let result = select_workflow(&prompt, &workflows);
         assert!(result.is_err());
