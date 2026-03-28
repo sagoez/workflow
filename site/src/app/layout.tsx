@@ -1,10 +1,16 @@
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import './global.css';
-import { Inter } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
 
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
+  variable: '--font-geist-sans',
+});
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
 });
 
 export const metadata: Metadata = {
@@ -31,7 +37,7 @@ export const metadata: Metadata = {
 
 export default function Layout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={inter.className} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${geist.className}`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
         <RootProvider search={{ options: { type: 'static' } }}>{children}</RootProvider>
       </body>
