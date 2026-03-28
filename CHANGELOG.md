@@ -1,5 +1,14 @@
 ## [unreleased]
 
+### 🐛 Bug Fixes
+
+- Remove unused ValidationError import
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version to 0.4.0
+## [0.4.0] - 2026-03-28
+
 ### 🚀 Features
 
 - Geist font, polished homepage, subtle page transitions
@@ -22,6 +31,7 @@
 ### ⚙️ Miscellaneous Tasks
 
 - Bump version to 0.3.2
+- Bump version to 0.4.0
 ## [0.3.2] - 2026-03-28
 
 ### 🚀 Features
