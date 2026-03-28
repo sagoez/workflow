@@ -3,10 +3,18 @@
 ### 🐛 Bug Fixes
 
 - Remove unused ValidationError import
+- Propagate Cancelled through actor system for clean Esc exit
+- Move PromptError import to test module
+- Exit cleanly on Esc — process::exit(0) on Interrupted
+
+### 🚜 Refactor
+
+- Remove Cancelled/wrap, use ctrlc for clean exit
 
 ### ⚙️ Miscellaneous Tasks
 
 - Bump version to 0.4.0
+- Update changelog
 ## [0.4.0] - 2026-03-28
 
 ### 🚀 Features
