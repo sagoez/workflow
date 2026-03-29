@@ -44,7 +44,6 @@
 ### ⚙️ Miscellaneous Tasks
 
 - Bump version to 0.4.0
-- Update changelog
 - Bump version to 0.4.1
 ## [0.4.0] - 2026-03-28
 
@@ -85,7 +84,6 @@
 
 ### ⚙️ Miscellaneous Tasks
 
-- Update changelog for v0.3.1
 - Bump version to 0.3.2
 ## [0.3.1] - 2026-03-28
 
