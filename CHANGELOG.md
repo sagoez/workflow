@@ -1,5 +1,22 @@
 ## [unreleased]
 
+### 🚀 Features
+
+- Add OutputWriter port with cliclack adapter
+- Route git adapter output through OutputWriter
+- Clean sync UI with intro/spinner/outro
+
+### 🐛 Bug Fixes
+
+- Replace clipboard crate with arboard — fixes Linux CI build
+- *(ci)* Remove xcb dependencies — no longer needed with arboard
+- Remove hardcoded emoji from sync output
+
+### 🎨 Styling
+
+- Format imports
+## [0.4.1] - 2026-03-28
+
 ### 🐛 Bug Fixes
 
 - Remove unused ValidationError import
@@ -15,6 +32,7 @@
 
 - Bump version to 0.4.0
 - Update changelog
+- Bump version to 0.4.1
 ## [0.4.0] - 2026-03-28
 
 ### 🚀 Features
