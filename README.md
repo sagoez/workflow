@@ -7,7 +7,7 @@ A terminal-native alternative to [Warp's Workflows](https://docs.warp.dev/knowle
 
 [Documentation](https://wf.sagoez.com) | [Workflow Vault](https://vault.sagoez.com)
 
-> Built with event sourcing, CQRS, hexagonal architecture, and an actor model — because I wanted to learn all of that and needed an excuse to build something. You could do this in 50 lines of bash. But your bash script wouldn't have an actor model.
+> Built with event sourcing, CQRS, hexagonal architecture, and an actor model — because I wanted an excuse to use [Ractor](https://github.com/slawlor/ractor). You could do this in 50 lines of bash. But your bash script wouldn't have an actor model.
 
 ## Quick Start
 
