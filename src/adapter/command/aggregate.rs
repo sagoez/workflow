@@ -16,7 +16,7 @@ use crate::{
         state::{StateDisplay, WorkflowState},
         workflow::Workflow
     },
-    port::{command::Command, storage::EventStore},
+    port::{command::Command, output::OutputWriter, storage::EventStore},
     t, t_params
 };
 
@@ -110,7 +110,7 @@ impl Command for ListAggregatesCommand {
         let aggregate_ids = app_context.event_store.list_aggregates().await?;
 
         if aggregate_ids.is_empty() {
-            println!("{}", t!("storage_no_aggregates"));
+            app_context.output.warning(&t!("storage_no_aggregates"));
         } else {
             let mut builder = Builder::default();
             builder.push_record(["#", "Workflow", "Status", "ID"]);
@@ -134,7 +134,7 @@ impl Command for ListAggregatesCommand {
             );
             table.with(Modify::new(Rows::first()).with(Color::FG_BRIGHT_CYAN));
 
-            println!("{}", table);
+            app_context.output.raw(&table.to_string());
         }
         Ok(())
     }
@@ -213,10 +213,10 @@ impl Command for ReplayAggregateCommand {
         let state = app_context.event_store.get_current_state(&full_id).await?;
         let events = app_context.event_store.get_events(&full_id).await?;
 
-        println!("{}", t_params!("storage_replay_aggregate", &[&uuid_to_short(&full_id)]));
-        println!("\n{}", t_params!("storage_replay_events_count", &[&events.len().to_string()]));
-        println!("\n{}", t!("storage_replay_state"));
-        display_state(&state);
+        app_context.output.info(&t_params!("storage_replay_aggregate", &[&uuid_to_short(&full_id)]));
+        app_context.output.info(&t_params!("storage_replay_events_count", &[&events.len().to_string()]));
+        app_context.output.step(&t!("storage_replay_state"));
+        display_state(&state, &*app_context.output);
 
         let command_parts: Option<(&Workflow, &std::collections::HashMap<String, String>)> = match &state {
             WorkflowState::WorkflowArgumentsResolved(s) => Some((&s.selected_workflow, &s.resolved_arguments)),
@@ -233,7 +233,7 @@ impl Command for ReplayAggregateCommand {
 
         if let Some((workflow, args)) = command_parts {
             if let Ok(rendered) = super::resolve::render_command_template(&workflow.command, args) {
-                println!("\n{}\n  {}", t!("storage_replay_command"), rendered);
+                app_context.output.step(&format!("{}\n  {}", t!("storage_replay_command"), rendered));
             }
         }
 
@@ -305,7 +305,7 @@ impl Command for DeleteAggregateCommand {
         app_context: &AppContext
     ) -> Result<(), Self::Error> {
         app_context.event_store.delete_aggregate(loaded_data).await?;
-        println!("{}", t_params!("storage_aggregate_deleted", &[&uuid_to_short(loaded_data)]));
+        app_context.output.success(&t_params!("storage_aggregate_deleted", &[&uuid_to_short(loaded_data)]));
         Ok(())
     }
 
@@ -341,7 +341,7 @@ fn extract_workflow_name(state: &WorkflowState) -> String {
     }
 }
 
-fn display_state(state: &WorkflowState) {
+fn display_state(state: &WorkflowState, output: &dyn OutputWriter) {
     let mut builder = Builder::default();
 
     builder.push_record([t!("state_table_property"), t!("state_table_value")]);
@@ -365,7 +365,7 @@ fn display_state(state: &WorkflowState) {
         table.with(Modify::new(Rows::new(arg_start_row..)).with(Color::FG_BRIGHT_CYAN));
     }
 
-    println!("{}", table);
+    output.raw(&table.to_string());
 }
 
 #[cfg(test)]

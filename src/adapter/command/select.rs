@@ -78,12 +78,12 @@ impl Command for InteractivelySelectWorkflowCommand {
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
         if let WorkflowState::WorkflowSelected(_) = current_state {
             // inquire already shows the selection
         } else {
-            eprintln!("{}", t!("error_no_workflow_selected"));
+            app_context.output.warning(&t!("error_no_workflow_selected"));
         }
         Ok(())
     }

@@ -65,21 +65,20 @@ impl Command for ListWorkflowsCommand {
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        println!("{}", t!("cli_available_workflows"));
-        println!();
+        app_context.output.info(&t!("cli_available_workflows"));
         match current_state {
             WorkflowState::WorkflowsListed(state) => {
                 for workflow in &state.discovered_workflows {
-                    println!("  - {}", workflow.name);
+                    app_context.output.step(&format!("  {}", workflow.name));
                 }
                 if state.discovered_workflows.is_empty() {
-                    println!("  {}", t!("no_workflows_found"));
+                    app_context.output.warning(&t!("no_workflows_found"));
                 }
             }
             _ => {
-                println!("  {}", t!("no_workflows_found"));
+                app_context.output.warning(&t!("no_workflows_found"));
             }
         }
 

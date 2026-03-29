@@ -8,10 +8,14 @@ pub mod service;
 use std::sync::Arc;
 
 use crate::{
-    adapter::{executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, prompt::CliPrompt},
+    adapter::{
+        executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, output::CliOutput, prompt::CliPrompt
+    },
     domain::error::WorkflowError,
     i18n::display::TextManager,
-    port::{executor::CommandExecutor, filesystem::FileSystem, git::GitClient, prompt::UserPrompt},
+    port::{
+        executor::CommandExecutor, filesystem::FileSystem, git::GitClient, output::OutputWriter, prompt::UserPrompt
+    },
     service::config::AppConfig
 };
 
@@ -31,7 +35,9 @@ pub struct AppContext {
     /// Command executor for shell commands
     pub executor:     Arc<dyn CommandExecutor>,
     /// File system operations
-    pub filesystem:   Arc<dyn FileSystem>
+    pub filesystem:   Arc<dyn FileSystem>,
+    /// Output writer for CLI display
+    pub output:       Arc<dyn OutputWriter>
 }
 
 impl AppContext {
@@ -56,7 +62,17 @@ impl AppContext {
         let prompt = Arc::new(CliPrompt::new()) as Arc<dyn UserPrompt>;
         let executor = Arc::new(ShellExecutor::new()) as Arc<dyn CommandExecutor>;
         let filesystem = Arc::new(StdFileSystem::new()) as Arc<dyn FileSystem>;
+        let output = Arc::new(CliOutput::default()) as Arc<dyn OutputWriter>;
 
-        Ok(Self { config, text_manager: text_manager.clone(), git_client, event_store, prompt, executor, filesystem })
+        Ok(Self {
+            config,
+            text_manager: text_manager.clone(),
+            git_client,
+            event_store,
+            prompt,
+            executor,
+            filesystem,
+            output
+        })
     }
 }

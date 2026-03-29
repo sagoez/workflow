@@ -64,7 +64,7 @@ impl Command for PurgeStorageCommand {
         app_context: &AppContext
     ) -> Result<(), Self::Error> {
         if app_context.config.storage_type != EventStoreType::RocksDb {
-            println!("{}", t!("storage_purge_only_rocksdb"));
+            app_context.output.warning(&t!("storage_purge_only_rocksdb"));
             return Ok(());
         }
 
@@ -77,7 +77,7 @@ impl Command for PurgeStorageCommand {
             WorkflowError::Storage(StorageError::Io(t_params!("error_failed_to_purge_storage", &[&e.to_string()])))
         })??;
 
-        println!("{}", t!("storage_purge_success"));
+        app_context.output.success(&t!("storage_purge_success"));
         Ok(())
     }
 

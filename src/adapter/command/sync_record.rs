@@ -100,17 +100,17 @@ impl Command for RecordSyncResultCommand {
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
         match current_state {
             WorkflowState::WorkflowsSynced(state) => {
-                println!("{}", t_params!("cli_synced_workflows", &[&state.remote_url]));
-                println!("{}", t_params!("cli_synced_branch", &[&state.branch]));
-                println!("{}", t_params!("cli_synced_commit", &[&state.commit_id]));
-                println!("{}", t_params!("cli_synced_count", &[&state.synced_count.to_string()]));
+                app_context.output.info(&t_params!("cli_synced_workflows", &[&state.remote_url]));
+                app_context.output.info(&t_params!("cli_synced_branch", &[&state.branch]));
+                app_context.output.info(&t_params!("cli_synced_commit", &[&state.commit_id]));
+                app_context.output.success(&t_params!("cli_synced_count", &[&state.synced_count.to_string()]));
             }
             _ => {
-                println!("{}", t!("error_no_workflows_synced"));
+                app_context.output.warning(&t!("error_no_workflows_synced"));
             }
         }
         Ok(())

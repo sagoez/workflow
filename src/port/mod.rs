@@ -5,5 +5,6 @@ pub mod executor;
 pub mod filesystem;
 pub mod git;
 pub mod journal;
+pub mod output;
 pub mod prompt;
 pub mod storage;

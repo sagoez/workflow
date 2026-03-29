@@ -72,7 +72,7 @@ impl Command for SetLanguageCommand {
             WorkflowState::LanguageSet(state) => {
                 let language = Language::try_from(state.language.as_str())?;
                 app_context.config.set_current_language(language)?;
-                println!("{}", t_params!("lang_set_success", &[&state.language]));
+                app_context.output.success(&t_params!("lang_set_success", &[&state.language]));
             }
             _ => {
                 return Err(ValidationError::InvalidState("Invalid state for language set".to_string()).into());
@@ -133,9 +133,9 @@ impl Command for GetCurrentLanguageCommand {
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        println!("{}", t_params!("lang_current", &[&loaded_data]));
+        app_context.output.info(&t_params!("lang_current", &[&loaded_data]));
         Ok(())
     }
 
@@ -190,12 +190,11 @@ impl Command for ListLanguagesCommand {
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        println!("{}", t!("lang_available_languages"));
-        println!();
+        app_context.output.info(&t!("lang_available_languages"));
         for language in loaded_data {
-            println!("  - {}", language);
+            app_context.output.step(&format!("  {}", language));
         }
         Ok(())
     }

@@ -70,12 +70,12 @@ impl Command for StartWorkflowCommand {
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
         if let WorkflowState::WorkflowStarted(_) = current_state {
             // nothing to print — prompts follow
         } else {
-            eprintln!("{}", t!("error_no_workflow_started"));
+            app_context.output.warning(&t!("error_no_workflow_started"));
         }
         Ok(())
     }

@@ -114,27 +114,27 @@ impl Command for ResolveArgumentsCommand {
         _previous_state: &WorkflowState,
         current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
         match current_state {
             WorkflowState::WorkflowArgumentsResolved(state) => {
                 let rendered_command =
                     render_command_template(&state.selected_workflow.command, &state.resolved_arguments)?;
 
-                println!("\n  {}\n", rendered_command);
+                app_context.output.step(&rendered_command);
 
                 match super::copy_to_clipboard(&rendered_command) {
                     Ok(()) => {
-                        println!("{}", t!("cli_command_copied_to_clipboard"));
+                        app_context.output.success(&t!("cli_command_copied_to_clipboard"));
                     }
                     Err(e) => {
-                        eprintln!("{}", t_params!("cli_failed_to_copy_to_clipboard", &[&e.to_string()]));
-                        println!("{}", t!("cli_command_can_now_be_pasted_and_executed_in_terminal"));
+                        app_context.output.warning(&t_params!("cli_failed_to_copy_to_clipboard", &[&e.to_string()]));
+                        app_context.output.info(&t!("cli_command_can_now_be_pasted_and_executed_in_terminal"));
                     }
                 }
             }
             _ => {
-                println!("{}", t!("error_no_arguments_resolved"));
+                app_context.output.warning(&t!("error_no_arguments_resolved"));
             }
         }
         Ok(())

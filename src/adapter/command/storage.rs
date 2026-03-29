@@ -49,9 +49,9 @@ impl Command for SetStorageCommand {
         _previous_state: &WorkflowState,
         _current_state: &WorkflowState,
         _context: &EngineContext,
-        _app_context: &AppContext
+        app_context: &AppContext
     ) -> Result<(), Self::Error> {
-        println!("{}", t_params!("storage_set_success", &[self.backend.as_str()]));
+        app_context.output.success(&t_params!("storage_set_success", &[self.backend.as_str()]));
         Ok(())
     }
 
@@ -109,7 +109,7 @@ impl Command for GetCurrentStorageCommand {
         app_context: &AppContext
     ) -> Result<(), Self::Error> {
         let current = app_context.config.get_current_storage()?;
-        println!("{}", t_params!("storage_current", &[current.as_str()]));
+        app_context.output.info(&t_params!("storage_current", &[current.as_str()]));
         Ok(())
     }
 
