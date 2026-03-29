@@ -77,13 +77,15 @@ impl Command for SyncWorkflowsCommand {
                 let clone_options =
                     CloneOptions { ssh_key: state.ssh_key.clone(), branch: Some(state.branch.clone()) };
 
+                app_context.output.intro(&t_params!("cli_synced_workflows", &[&state.remote_url]));
+
                 let spinner = app_context.output.spinner();
                 spinner.start(&t_params!("git_cloning_from", &[&state.remote_url]));
 
                 let commit_id =
                     app_context.git_client.clone_repository(&state.remote_url, workflows_dir, &clone_options).await?;
 
-                spinner.stop(&t_params!("cli_sync_completed", &[&state.remote_url]));
+                spinner.stop(&t_params!("git_clone_success", &[&commit_id[..8]]));
 
                 let record_sync_result_command = RecordSyncResultCommand { commit_id: commit_id.clone() };
                 context.schedule_command(record_sync_result_command.into()).await?;

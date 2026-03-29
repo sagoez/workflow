@@ -12,10 +12,9 @@ use crate::{
         git::{CloneOptions, CommitInfo, GitClient},
         output::OutputWriter
     },
-    t, t_params
+    t_params
 };
 
-/// Git2 implementation of GitClient
 pub struct Git2Client {
     output: Arc<dyn OutputWriter>
 }
@@ -35,8 +34,6 @@ impl GitClient for Git2Client {
         options: &CloneOptions
     ) -> Result<String, WorkflowError> {
         if destination.exists() {
-            self.output.step(&t!("git_clearing_contents"));
-
             if let Ok(entries) = fs::read_dir(destination) {
                 for entry in entries.flatten() {
                     let path = entry.path();
@@ -56,16 +53,12 @@ impl GitClient for Git2Client {
                         ));
                     }
                 }
-                self.output.success(&t!("git_contents_cleared"));
             }
         } else {
             fs::create_dir_all(destination)
                 .with_context(|| t_params!("git_failed_to_create_workflows_dir", &[&destination.display().to_string()]))
                 .map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }
-
-        let spinner = self.output.spinner();
-        spinner.start(&t_params!("git_cloning_from", &[url]));
 
         // Create a temporary directory for cloning
         let temp_dir = destination.join("temp_clone");
@@ -109,8 +102,6 @@ impl GitClient for Git2Client {
         let head = repo.head().map_err(|e| WorkflowError::Network(e.to_string()))?;
         let commit = head.peel_to_commit().map_err(|e| WorkflowError::Network(e.to_string()))?;
         let commit_id = commit.id().to_string();
-
-        spinner.stop(&t_params!("git_clone_success", &[&commit_id]));
 
         // Move all files from the cloned repository to the destination directory
         // Skip the .git directory and any other hidden files
