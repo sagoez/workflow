@@ -3,10 +3,12 @@
 ### 🐛 Bug Fixes
 
 - Update README motivation to match docs
+- Deterministic storage list ordering and select pagination
 
 ### ⚙️ Miscellaneous Tasks
 
 - Bump version to 0.4.2
+- Skip changelog update commits from changelog
 ## [0.4.2] - 2026-03-29
 
 ### 🚀 Features
