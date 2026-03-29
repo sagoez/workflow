@@ -22,11 +22,12 @@ impl CliPrompt {
 }
 
 impl UserPrompt for CliPrompt {
-    fn select(&self, prompt: &str, options: Vec<String>, _page_size: usize) -> Result<String, WorkflowError> {
+    fn select(&self, prompt: &str, options: Vec<String>, page_size: usize) -> Result<String, WorkflowError> {
         let mut select = cliclack::select(prompt);
         for option in &options {
             select = select.item(option.clone(), option, "");
         }
+        select = select.max_rows(page_size).filter_mode();
         handle_interact_result(select.interact())
     }
 

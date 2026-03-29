@@ -3,7 +3,7 @@
 //! This module provides both in-memory and persistent (RocksDB) implementations
 //! of the EventStore trait.
 
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::{BTreeSet, HashMap}, path::Path, sync::Arc};
 
 use async_trait::async_trait;
 use rocksdb::{DB, Options};
@@ -146,7 +146,8 @@ impl EventStore for InMemoryEventStore {
 
     async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError> {
         let event_store = self.events.read().await;
-        Ok(event_store.keys().cloned().collect())
+        let sorted: BTreeSet<String> = event_store.keys().cloned().collect();
+        Ok(sorted.into_iter().collect())
     }
 
     async fn delete_aggregate(&self, aggregate_id: &str) -> Result<(), WorkflowError> {
@@ -301,6 +302,27 @@ mod tests {
             _ => panic!("Expected WorkflowCompleted state")
         }
     }
+
+    #[tokio::test]
+    async fn list_aggregates_returns_sorted_order() {
+        let store = InMemoryEventStore::new();
+        let workflow = create_test_workflow();
+
+        let event = WorkflowEvent::WorkflowDiscovered(WorkflowDiscoveredEvent {
+            event_id:  Uuid::new_v4().to_string(),
+            timestamp: Utc::now(),
+            workflow:  workflow.clone(),
+            file_path: "test.yaml".to_string()
+        });
+
+        // Insert in deliberately unsorted order
+        for id in ["zebra", "alpha", "middle"] {
+            store.store_events(id, &[event.clone()]).await.unwrap();
+        }
+
+        let ids = store.list_aggregates().await.unwrap();
+        assert_eq!(ids, vec!["alpha", "middle", "zebra"]);
+    }
 }
 
 /// RocksDB-based event store implementation
@@ -400,7 +422,7 @@ impl EventStore for RocksDbEventStore {
     async fn list_aggregates(&self) -> Result<Vec<String>, WorkflowError> {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || -> Result<Vec<String>, WorkflowError> {
-            let mut aggregate_ids = std::collections::HashSet::new();
+            let mut aggregate_ids = BTreeSet::new();
             let prefix = b"journal:";
 
             let iter = db.iterator(rocksdb::IteratorMode::From(prefix, rocksdb::Direction::Forward));
