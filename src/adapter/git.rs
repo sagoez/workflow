@@ -1,6 +1,6 @@
 //! Git2 implementation of git ports
 
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -8,22 +8,21 @@ use git2::Repository;
 
 use crate::{
     domain::error::{StorageError, ValidationError, WorkflowError},
-    port::git::{CloneOptions, CommitInfo, GitClient},
+    port::{
+        git::{CloneOptions, CommitInfo, GitClient},
+        output::OutputWriter
+    },
     t, t_params
 };
 
 /// Git2 implementation of GitClient
-pub struct Git2Client;
-
-impl Git2Client {
-    pub fn new() -> Self {
-        Self
-    }
+pub struct Git2Client {
+    output: Arc<dyn OutputWriter>
 }
 
-impl Default for Git2Client {
-    fn default() -> Self {
-        Self::new()
+impl Git2Client {
+    pub fn new(output: Arc<dyn OutputWriter>) -> Self {
+        Self { output }
     }
 }
 
@@ -36,28 +35,28 @@ impl GitClient for Git2Client {
         options: &CloneOptions
     ) -> Result<String, WorkflowError> {
         if destination.exists() {
-            println!("{}", t!("git_clearing_contents"));
+            self.output.step(&t!("git_clearing_contents"));
 
             if let Ok(entries) = fs::read_dir(destination) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_file() {
                         if let Err(e) = fs::remove_file(&path) {
-                            println!(
-                                "{}",
-                                t_params!("git_warning_remove_file", &[&path.display().to_string(), &e.to_string()])
-                            );
+                            self.output.warning(&t_params!(
+                                "git_warning_remove_file",
+                                &[&path.display().to_string(), &e.to_string()]
+                            ));
                         }
                     } else if path.is_dir()
                         && let Err(e) = fs::remove_dir_all(&path)
                     {
-                        println!(
-                            "{}",
-                            t_params!("git_warning_remove_dir", &[&path.display().to_string(), &e.to_string()])
-                        );
+                        self.output.warning(&t_params!(
+                            "git_warning_remove_dir",
+                            &[&path.display().to_string(), &e.to_string()]
+                        ));
                     }
                 }
-                println!("{}", t!("git_contents_cleared"));
+                self.output.success(&t!("git_contents_cleared"));
             }
         } else {
             fs::create_dir_all(destination)
@@ -65,7 +64,8 @@ impl GitClient for Git2Client {
                 .map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }
 
-        println!("{}", t_params!("git_cloning_from", &[url]));
+        let spinner = self.output.spinner();
+        spinner.start(&t_params!("git_cloning_from", &[url]));
 
         // Create a temporary directory for cloning
         let temp_dir = destination.join("temp_clone");
@@ -110,7 +110,7 @@ impl GitClient for Git2Client {
         let commit = head.peel_to_commit().map_err(|e| WorkflowError::Network(e.to_string()))?;
         let commit_id = commit.id().to_string();
 
-        println!("{}", t_params!("git_clone_success", &[&commit_id]));
+        spinner.stop(&t_params!("git_clone_success", &[&commit_id]));
 
         // Move all files from the cloned repository to the destination directory
         // Skip the .git directory and any other hidden files

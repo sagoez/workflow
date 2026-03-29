@@ -9,7 +9,8 @@ use std::sync::Arc;
 
 use crate::{
     adapter::{
-        executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, output::CliOutput, prompt::CliPrompt
+        executor::ShellExecutor, filesystem::StdFileSystem, git::Git2Client, output::CliOutput, prompt::CliPrompt,
+        storage::EventStoreFactory
     },
     domain::error::WorkflowError,
     i18n::display::TextManager,
@@ -55,14 +56,12 @@ impl AppContext {
         let config = AppConfig::with_storage_type(storage_type)?;
         config.ensure_dirs_exist()?;
         let text_manager = TextManager::init(Some(config.config_dir.clone()));
-        let git_client = Arc::new(Git2Client::new()) as Arc<dyn GitClient>;
-        let event_store =
-            crate::adapter::storage::EventStoreFactory::create(config.storage_type, Some(&config.database_path))?;
-
+        let output = Arc::new(CliOutput::default()) as Arc<dyn OutputWriter>;
+        let git_client = Arc::new(Git2Client::new(output.clone())) as Arc<dyn GitClient>;
+        let event_store = EventStoreFactory::create(config.storage_type, Some(&config.database_path))?;
         let prompt = Arc::new(CliPrompt::new()) as Arc<dyn UserPrompt>;
         let executor = Arc::new(ShellExecutor::new()) as Arc<dyn CommandExecutor>;
         let filesystem = Arc::new(StdFileSystem::new()) as Arc<dyn FileSystem>;
-        let output = Arc::new(CliOutput::default()) as Arc<dyn OutputWriter>;
 
         Ok(Self {
             config,
