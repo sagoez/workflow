@@ -31,7 +31,7 @@ export default function HomePage() {
           Documentation
         </Link>
         <Link
-          href="https://vault.sagoez.com"
+          href="https://github.com/sagoez/workflow-vault"
           className="inline-flex items-center px-5 py-2.5 rounded-lg border border-fd-border font-medium text-sm hover:bg-fd-accent active:scale-[0.98] transition-all"
         >
           Workflow Vault
