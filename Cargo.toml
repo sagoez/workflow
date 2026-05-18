@@ -35,13 +35,13 @@ serde_yaml = "0.9"
 tabled = "0.20.0"
 tera = "1.20"
 thiserror = "2.0.16"
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 tokio-util = "0.7"
-ractor = { version = "0.15.8", features = ["cluster", "monitors", "serde", "async-trait"] }
+ractor = { version = "0.15", features = ["cluster", "monitors", "serde", "async-trait"] }
 tracing = "0.1"
-uuid = { version = "1.18.1", features = ["v4"] }
-whoami = "2.0.0"
-cliclack = "0.5.2"
+uuid = { version = "1.23", features = ["v4"] }
+whoami = "2.1"
+cliclack = "0.5.4"
 ctrlc = "3.5.2"
 arboard = "3.6.1"
 
