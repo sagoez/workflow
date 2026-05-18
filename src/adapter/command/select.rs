@@ -12,14 +12,35 @@ use crate::{
         state::WorkflowState,
         workflow::Workflow
     },
-    port::{command::Command, prompt::UserPrompt},
+    port::{
+        command::Command,
+        prompt::{SelectOption, UserPrompt}
+    },
     t, t_params
 };
+
+/// Build the hint shown next to a workflow in the chooser.
+/// Format: "description • #tag1 #tag2", omitting either half if empty.
+pub fn workflow_hint(workflow: &Workflow) -> String {
+    let tags = if workflow.tags.is_empty() {
+        String::new()
+    } else {
+        workflow.tags.iter().map(|t| format!("#{}", t)).collect::<Vec<_>>().join(" ")
+    };
+
+    match (workflow.description.is_empty(), tags.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => workflow.description.clone(),
+        (true, false) => tags,
+        (false, false) => format!("{} • {}", workflow.description, tags)
+    }
+}
 
 /// Select a workflow from a list using the UserPrompt trait.
 /// Returns the selected Workflow.
 pub fn select_workflow(prompt: &dyn UserPrompt, workflows: &[Workflow]) -> Result<Workflow, WorkflowError> {
-    let options: Vec<String> = workflows.iter().map(|w| w.name.clone()).collect();
+    let options: Vec<SelectOption> =
+        workflows.iter().map(|w| SelectOption::new(w.name.clone(), workflow_hint(w))).collect();
 
     let selected_name = prompt
         .select(&t!("select_workflow"), options, 10)
@@ -153,5 +174,43 @@ mod tests {
 
         let result = select_workflow(&prompt, &workflows);
         assert!(result.is_err());
+    }
+
+    fn workflow_with(description: &str, tags: Vec<&str>) -> Workflow {
+        Workflow {
+            name:        "wf".to_string(),
+            description: description.to_string(),
+            command:     "echo".to_string(),
+            arguments:   vec![],
+            source_url:  None,
+            author:      None,
+            author_url:  None,
+            shells:      vec![],
+            tags:        tags.into_iter().map(String::from).collect()
+        }
+    }
+
+    #[test]
+    fn hint_uses_description_when_no_tags() {
+        let wf = workflow_with("Deploys the app", vec![]);
+        assert_eq!(workflow_hint(&wf), "Deploys the app");
+    }
+
+    #[test]
+    fn hint_uses_tags_when_no_description() {
+        let wf = workflow_with("", vec!["k8s", "deploy"]);
+        assert_eq!(workflow_hint(&wf), "#k8s #deploy");
+    }
+
+    #[test]
+    fn hint_joins_description_and_tags() {
+        let wf = workflow_with("Deploys the app", vec!["k8s", "deploy"]);
+        assert_eq!(workflow_hint(&wf), "Deploys the app • #k8s #deploy");
+    }
+
+    #[test]
+    fn hint_is_empty_when_both_empty() {
+        let wf = workflow_with("", vec![]);
+        assert_eq!(workflow_hint(&wf), "");
     }
 }

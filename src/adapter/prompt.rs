@@ -1,6 +1,6 @@
 use crate::{
     domain::error::{PromptError, WorkflowError},
-    port::prompt::UserPrompt
+    port::prompt::{SelectOption, UserPrompt}
 };
 
 fn handle_interact_result<T>(result: Result<T, std::io::Error>) -> Result<T, WorkflowError> {
@@ -22,10 +22,10 @@ impl CliPrompt {
 }
 
 impl UserPrompt for CliPrompt {
-    fn select(&self, prompt: &str, options: Vec<String>, page_size: usize) -> Result<String, WorkflowError> {
+    fn select(&self, prompt: &str, options: Vec<SelectOption>, page_size: usize) -> Result<String, WorkflowError> {
         let mut select = cliclack::select(prompt);
         for option in &options {
-            select = select.item(option.clone(), option, "");
+            select = select.item(option.value.clone(), &option.value, &option.hint);
         }
         select = select.max_rows(page_size).filter_mode();
         handle_interact_result(select.interact())
@@ -39,23 +39,28 @@ impl UserPrompt for CliPrompt {
         min: Option<usize>,
         max: Option<usize>
     ) -> Result<Vec<String>, WorkflowError> {
+        let needs_one = min.is_some_and(|m| m >= 1);
+        let extra_validation_needed = min.is_some_and(|m| m > 1) || max.is_some();
+
         loop {
-            let mut ms = cliclack::multiselect(prompt);
+            let mut ms = cliclack::multiselect(prompt).required(needs_one);
             for option in &options {
                 ms = ms.item(option.clone(), option, "");
             }
             let selections: Vec<String> = handle_interact_result(ms.interact())?;
 
-            if let Some(min_val) = min {
-                if selections.len() < min_val {
-                    cliclack::log::warning(format!("Select at least {} item(s)", min_val)).ok();
-                    continue;
+            if extra_validation_needed {
+                if let Some(min_val) = min {
+                    if selections.len() < min_val {
+                        cliclack::log::warning(format!("Select at least {} item(s)", min_val)).ok();
+                        continue;
+                    }
                 }
-            }
-            if let Some(max_val) = max {
-                if selections.len() > max_val {
-                    cliclack::log::warning(format!("Select at most {} item(s)", max_val)).ok();
-                    continue;
+                if let Some(max_val) = max {
+                    if selections.len() > max_val {
+                        cliclack::log::warning(format!("Select at most {} item(s)", max_val)).ok();
+                        continue;
+                    }
                 }
             }
             return Ok(selections);
@@ -68,6 +73,11 @@ impl UserPrompt for CliPrompt {
             input = input.default_input(d);
         }
         handle_interact_result(input.interact())
+    }
+
+    fn confirm(&self, prompt: &str, default: bool) -> Result<bool, WorkflowError> {
+        let mut confirm = cliclack::confirm(prompt).initial_value(default);
+        handle_interact_result(confirm.interact())
     }
 }
 
@@ -82,6 +92,7 @@ pub mod mock {
         Select(String),
         MultiSelect(Vec<String>),
         Text(String),
+        Confirm(bool),
         Error(WorkflowError)
     }
 
@@ -97,7 +108,12 @@ pub mod mock {
     }
 
     impl UserPrompt for MockPrompt {
-        fn select(&self, _prompt: &str, _options: Vec<String>, _page_size: usize) -> Result<String, WorkflowError> {
+        fn select(
+            &self,
+            _prompt: &str,
+            _options: Vec<SelectOption>,
+            _page_size: usize
+        ) -> Result<String, WorkflowError> {
             let mut responses = self.responses.lock().unwrap();
             match responses.remove(0) {
                 MockPromptResponse::Select(value) => Ok(value),
@@ -130,6 +146,15 @@ pub mod mock {
                 _ => panic!("MockPrompt: expected Text response")
             }
         }
+
+        fn confirm(&self, _prompt: &str, _default: bool) -> Result<bool, WorkflowError> {
+            let mut responses = self.responses.lock().unwrap();
+            match responses.remove(0) {
+                MockPromptResponse::Confirm(value) => Ok(value),
+                MockPromptResponse::Error(e) => Err(e),
+                _ => panic!("MockPrompt: expected Confirm response")
+            }
+        }
     }
 }
 
@@ -156,6 +181,12 @@ mod tests {
         let mock = MockPrompt::new(vec![MockPromptResponse::Text("hello".to_string())]);
         let result = mock.text("Enter text", None);
         assert_eq!(result.unwrap(), "hello");
+    }
+
+    #[test]
+    fn mock_prompt_confirm_returns_scripted_value() {
+        let mock = MockPrompt::new(vec![MockPromptResponse::Confirm(true)]);
+        assert!(mock.confirm("ok?", false).unwrap());
     }
 
     #[test]

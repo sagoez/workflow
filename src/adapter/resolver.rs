@@ -14,7 +14,10 @@ use crate::{
         error::{ValidationError, WorkflowError},
         workflow::WorkflowArgument
     },
-    port::{executor::CommandExecutor, prompt::UserPrompt},
+    port::{
+        executor::CommandExecutor,
+        prompt::{SelectOption, UserPrompt}
+    },
     t, t_params
 };
 
@@ -83,8 +86,8 @@ impl ArgumentResolver {
         let prompt_text = t_params!("prompt_select", &[&arg.name]);
 
         let custom_option = t!("enum_custom_option").to_string();
-        let mut options = vec![custom_option.clone()];
-        options.extend(variants.iter().cloned());
+        let mut options: Vec<SelectOption> = vec![SelectOption::plain(custom_option.clone())];
+        options.extend(variants.iter().cloned().map(SelectOption::plain));
 
         let selection = prompt
             .select(&prompt_text, options, PAGE_SIZE)
@@ -138,8 +141,8 @@ impl ArgumentResolver {
         let prompt_text = t_params!("prompt_select", &[&arg.name]);
 
         let custom_option = t!("enum_custom_option").to_string();
-        let mut all_options = vec![custom_option.clone()];
-        all_options.extend(options);
+        let mut all_options: Vec<SelectOption> = vec![SelectOption::plain(custom_option.clone())];
+        all_options.extend(options.into_iter().map(SelectOption::plain));
 
         let selection = prompt
             .select(&prompt_text, all_options, PAGE_SIZE)

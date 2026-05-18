@@ -34,6 +34,8 @@
     "error_input_failed": "Error al ingresar para {0}: {1}",
     "cli_command_copied_to_clipboard": "Copiado al portapapeles",
     "cli_command_can_now_be_pasted_and_executed_in_terminal": "Pega y ejecuta en tu terminal.",
+    "cli_clipboard_copy_skipped": "Copia al portapapeles omitida",
+    "prompt_copy_to_clipboard": "¿Copiar comando al portapapeles?",
     "cli_failed_to_copy_to_clipboard": "Error al copiar al portapapeles: {0}",
     "error_enum_argument_missing_configuration": "Argumento '{0}' de enumeración faltante",
     "error_dynamic_resolution_failed": "Resolución dinámica fallida: argumento referenciado '{0}' no encontrado",

@@ -123,6 +123,13 @@ impl Command for ResolveArgumentsCommand {
 
                 app_context.output.step(&rendered_command);
 
+                let should_copy = app_context.prompt.confirm(&t!("prompt_copy_to_clipboard"), true).unwrap_or(true);
+
+                if !should_copy {
+                    app_context.output.info(&t!("cli_clipboard_copy_skipped"));
+                    return Ok(());
+                }
+
                 match super::copy_to_clipboard(&rendered_command) {
                     Ok(()) => {
                         app_context.output.success(&t!("cli_command_copied_to_clipboard"));
