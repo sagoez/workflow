@@ -149,16 +149,16 @@ impl CommandProcessor {
         Ok(())
     }
 
-    /// Recover state from journal on startup
+    /// Recover state from journal on startup.
+    /// Loads the latest snapshot (if any), then replays events after that sequence.
     async fn recover_state(session_id: &str, journal: &Arc<dyn Journal>) -> Result<WorkflowState, WorkflowError> {
-        let events = journal.replay_events(session_id, 0).await?;
+        let (mut state, from_sequence) = match journal.load_snapshot(session_id).await? {
+            Some((sequence, snapshot_state)) => (snapshot_state, sequence),
+            None => (WorkflowState::default(), 0)
+        };
 
-        if events.is_empty() {
-            return Ok(WorkflowState::default());
-        }
+        let events = journal.replay_events(session_id, from_sequence).await?;
 
-        // Apply events to rebuild state
-        let mut state = WorkflowState::default();
         for event in events {
             let boxed_event = Box::new(event) as Box<dyn Event>;
             if let Some(new_state) = boxed_event.apply(Some(&state)) {

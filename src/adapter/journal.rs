@@ -15,11 +15,23 @@ use crate::{
     adapter::storage::EventStoreFactory,
     domain::{
         error::{StorageError, WorkflowError},
-        event::{AggregateEvent, EventMetadata, WorkflowEvent}
+        event::{AggregateEvent, EventMetadata, WorkflowEvent},
+        state::WorkflowState
     },
-    port::journal::Journal,
+    port::{event::Event, journal::Journal},
     t, t_params
 };
+
+/// Width to which snapshot sequences are zero-padded in RocksDB keys.
+/// u64::MAX is 20 decimal digits, so 20 is enough for any sequence and lets
+/// `seek_for_prev` work correctly (lexicographic order = numeric order).
+const SNAPSHOT_SEQ_WIDTH: usize = 20;
+
+/// Build the key used to store a snapshot of `session_id` at the given sequence.
+/// Format: `snapshot:{session_id}:{0-padded sequence}`.
+fn snapshot_key(session_id: &str, sequence: u64) -> String {
+    format!("snapshot:{}:{:0>width$}", session_id, sequence, width = SNAPSHOT_SEQ_WIDTH)
+}
 
 /// In-Memory Journal Implementation
 ///
@@ -90,6 +102,10 @@ impl Journal for InMemoryJournal {
 
         Ok(())
     }
+
+    async fn load_snapshot(&self, _session_id: &str) -> Result<Option<(u64, WorkflowState)>, WorkflowError> {
+        Ok(None)
+    }
 }
 
 pub struct RocksDbJournal {
@@ -117,8 +133,6 @@ impl RocksDbJournal {
         sequence: u64,
         events: &[WorkflowEvent]
     ) -> Result<(), WorkflowError> {
-        use crate::{domain::state::WorkflowState, port::event::Event};
-
         let session_id = session_id.to_string();
         let db = self.db.clone();
         let events = events.to_vec();
@@ -131,7 +145,7 @@ impl RocksDbJournal {
                 }
             }
 
-            let key = format!("snapshot:{}:{}", session_id, sequence);
+            let key = snapshot_key(&session_id, sequence);
             let serialized = serde_json::to_vec(&state)
                 .map_err(|e| StorageError::Serialization(format!("Failed to serialize snapshot: {}", e)))?;
 
@@ -216,39 +230,6 @@ impl Journal for RocksDbJournal {
     }
 
     async fn replay_events(&self, session_id: &str, from_sequence: u64) -> Result<Vec<WorkflowEvent>, WorkflowError> {
-        let session_id_owned = session_id.to_string();
-        let db = self.db.clone();
-
-        let snapshot_sequence = tokio::task::spawn_blocking(move || -> Result<Option<u64>, WorkflowError> {
-            let snapshot_prefix = format!("snapshot:{}:", session_id_owned);
-            let seek_key = format!("snapshot:{}:{}", session_id_owned, u64::MAX);
-
-            let mut iter = db.raw_iterator();
-            iter.seek_for_prev(seek_key.as_bytes());
-
-            if iter.valid() {
-                if let Some(key_bytes) = iter.key() {
-                    let key_str = String::from_utf8_lossy(key_bytes);
-
-                    if key_str.starts_with(&snapshot_prefix) {
-                        let parts: Vec<&str> = key_str.split(':').collect();
-                        if parts.len() == 3 {
-                            let sequence = parts[2]
-                                .parse::<u64>()
-                                .map_err(|e| StorageError::Serialization(format!("Invalid sequence: {}", e)))?;
-                            return Ok(Some(sequence));
-                        }
-                    }
-                }
-            }
-
-            Ok(None)
-        })
-        .await
-        .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to find snapshot: {}", e))))??;
-
-        let skip_until = snapshot_sequence.unwrap_or(0).max(from_sequence);
-
         let session_id = session_id.to_string();
         let db = self.db.clone();
 
@@ -260,7 +241,7 @@ impl Journal for RocksDbJournal {
                     let aggregate_events: Vec<AggregateEvent> = serde_json::from_slice(&data).map_err(|e| {
                         StorageError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
-                    Ok(aggregate_events.into_iter().skip(skip_until as usize).map(|ae| ae.data).collect())
+                    Ok(aggregate_events.into_iter().skip(from_sequence as usize).map(|ae| ae.data).collect())
                 }
                 Ok(None) => Ok(vec![]),
                 Err(e) => Err(StorageError::Io(format!("Failed to read journal: {}", e)).into())
@@ -332,6 +313,47 @@ impl Journal for RocksDbJournal {
             )))
         })?
     }
+
+    async fn load_snapshot(&self, session_id: &str) -> Result<Option<(u64, WorkflowState)>, WorkflowError> {
+        let session_id = session_id.to_string();
+        let db = self.db.clone();
+
+        tokio::task::spawn_blocking(move || -> Result<Option<(u64, WorkflowState)>, WorkflowError> {
+            // Snapshot keys are zero-padded so lexicographic order matches numeric order:
+            // seek_for_prev with the MAX-sequence key returns the highest snapshot for the
+            // session in O(log n).
+            let prefix = format!("snapshot:{}:", session_id);
+            let seek_key = snapshot_key(&session_id, u64::MAX);
+
+            let mut iter = db.raw_iterator();
+            iter.seek_for_prev(seek_key.as_bytes());
+
+            if !iter.valid() {
+                return Ok(None);
+            }
+
+            let Some(key_bytes) = iter.key() else { return Ok(None) };
+            if !key_bytes.starts_with(prefix.as_bytes()) {
+                return Ok(None);
+            }
+
+            let key_str = std::str::from_utf8(key_bytes)
+                .map_err(|e| StorageError::Serialization(format!("Snapshot key is not valid UTF-8: {}", e)))?;
+            let seq_str = &key_str[prefix.len()..];
+            let sequence = seq_str
+                .parse::<u64>()
+                .map_err(|e| StorageError::Serialization(format!("Invalid snapshot sequence: {}", e)))?;
+
+            let value_bytes =
+                iter.value().ok_or_else(|| StorageError::Io(format!("Snapshot {} has no value", key_str)))?;
+            let state: WorkflowState = serde_json::from_slice(value_bytes)
+                .map_err(|e| StorageError::Serialization(format!("Failed to deserialize snapshot state: {}", e)))?;
+
+            Ok(Some((sequence, state)))
+        })
+        .await
+        .map_err(|e| WorkflowError::from(StorageError::Io(format!("Failed to load snapshot: {}", e))))?
+    }
 }
 
 /// Journal Factory - Configuration-driven journal creation
@@ -358,10 +380,12 @@ impl JournalFactory {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
+    use rocksdb::{DB, Options};
+    use tempfile::TempDir;
     use uuid::Uuid;
 
     use super::*;
-    use crate::domain::event::*;
+    use crate::domain::{event::*, workflow::Workflow};
 
     #[tokio::test]
     async fn test_inmemory_journal() {
@@ -393,5 +417,148 @@ mod tests {
         journal.delete_events(session_id, 1).await.unwrap();
         let after_delete = journal.replay_events(session_id, 0).await.unwrap();
         assert!(after_delete.is_empty());
+    }
+
+    #[tokio::test]
+    async fn inmemory_journal_load_snapshot_returns_none() {
+        let journal = InMemoryJournal::new();
+        assert!(journal.load_snapshot("any-session").await.unwrap().is_none());
+    }
+
+    /// Build a temp RocksDB and RocksDbJournal with a low snapshot threshold for testing.
+    fn temp_rocksdb_journal(snapshot_threshold: u64) -> (TempDir, RocksDbJournal) {
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let db = DB::open(&opts, temp.path()).expect("open rocksdb");
+        let journal = RocksDbJournal::with_snapshot_threshold(Arc::new(db), snapshot_threshold);
+        (temp, journal)
+    }
+
+    fn discovered_event(name: &str) -> WorkflowEvent {
+        WorkflowEvent::WorkflowDiscovered(WorkflowDiscoveredEvent {
+            event_id:  Uuid::new_v4().to_string(),
+            timestamp: Utc::now(),
+            workflow:  Workflow {
+                name:        name.to_string(),
+                command:     "echo".to_string(),
+                description: "test".to_string(),
+                arguments:   vec![],
+                tags:        vec![],
+                source_url:  None,
+                author:      None,
+                author_url:  None,
+                shells:      vec![]
+            },
+            file_path: format!("{}.yaml", name)
+        })
+    }
+
+    #[tokio::test]
+    async fn rocksdb_journal_load_snapshot_none_before_threshold() {
+        let (_tmp, journal) = temp_rocksdb_journal(10);
+        let session_id = "session-A";
+
+        // Persist a single event — under the threshold of 10.
+        journal.persist_events(session_id, &[discovered_event("wf-1")]).await.unwrap();
+
+        assert!(
+            journal.load_snapshot(session_id).await.unwrap().is_none(),
+            "snapshot should not exist before threshold is reached"
+        );
+    }
+
+    #[tokio::test]
+    async fn rocksdb_journal_creates_snapshot_at_threshold() {
+        // Threshold = 2 means snapshot is taken every 2 persisted events.
+        let (_tmp, journal) = temp_rocksdb_journal(2);
+        let session_id = "session-B";
+
+        journal.persist_events(session_id, &[discovered_event("wf-1")]).await.unwrap();
+        journal.persist_events(session_id, &[discovered_event("wf-2")]).await.unwrap();
+
+        let snapshot = journal.load_snapshot(session_id).await.unwrap();
+        assert!(snapshot.is_some(), "expected a snapshot after reaching threshold");
+        let (sequence, _state) = snapshot.unwrap();
+        assert_eq!(sequence, 2, "snapshot should be at sequence 2 after 2 events");
+    }
+
+    #[tokio::test]
+    async fn rocksdb_journal_replay_from_snapshot_returns_only_subsequent_events() {
+        // Regression for the original bug: replay_events used to implicitly skip past
+        // the snapshot sequence even when callers didn't load it. Now callers explicitly
+        // pass from_sequence — we verify it slices correctly and the new contract holds:
+        // replay_events(0) returns ALL events (no implicit skip).
+        let (_tmp, journal) = temp_rocksdb_journal(2);
+        let session_id = "session-C";
+
+        // Snapshot is taken when highest_sequence_nr % threshold == 0.
+        // Persist 3 events: snapshot triggers at sequence 2.
+        journal.persist_events(session_id, &[discovered_event("wf-1")]).await.unwrap();
+        journal.persist_events(session_id, &[discovered_event("wf-2")]).await.unwrap();
+        journal.persist_events(session_id, &[discovered_event("wf-3")]).await.unwrap();
+
+        // replay_events(0) should return all 3 events (no implicit skip).
+        let all = journal.replay_events(session_id, 0).await.unwrap();
+        assert_eq!(all.len(), 3, "replay_events(0) must return every persisted event");
+
+        // load_snapshot returns the latest snapshot (at seq 2 since threshold is 2 and
+        // we only crossed a multiple of 2 once — at seq=2).
+        let (snapshot_seq, _) = journal.load_snapshot(session_id).await.unwrap().unwrap();
+        assert_eq!(snapshot_seq, 2, "snapshot should be at the most recent multiple of threshold");
+
+        // replay_events from the snapshot sequence returns only the events after it.
+        let after_snapshot = journal.replay_events(session_id, snapshot_seq).await.unwrap();
+        assert_eq!(after_snapshot.len(), 1, "expected 1 event after snapshot at seq {}", snapshot_seq);
+    }
+
+    #[tokio::test]
+    async fn rocksdb_journal_load_snapshot_returns_latest_when_multiple_exist() {
+        // With threshold=2 and 4 events, snapshots are taken at seq=2 and seq=4.
+        // load_snapshot must return the latest (seq=4), not the first.
+        let (_tmp, journal) = temp_rocksdb_journal(2);
+        let session_id = "session-E";
+
+        for i in 1..=4 {
+            journal.persist_events(session_id, &[discovered_event(&format!("wf-{}", i))]).await.unwrap();
+        }
+
+        let (sequence, _) = journal.load_snapshot(session_id).await.unwrap().unwrap();
+        assert_eq!(sequence, 4, "should return the highest snapshot sequence, not an older one");
+    }
+
+    #[test]
+    fn snapshot_key_sorts_lexicographically_in_numeric_order() {
+        // The whole point of zero-padding is that seek_for_prev works correctly.
+        // If a non-padded "2" key existed it would sort after "10" lexicographically.
+        let k2 = snapshot_key("S", 2);
+        let k10 = snapshot_key("S", 10);
+        let k100 = snapshot_key("S", 100);
+        let k_max = snapshot_key("S", u64::MAX);
+
+        assert!(k2 < k10, "{} should sort before {}", k2, k10);
+        assert!(k10 < k100, "{} should sort before {}", k10, k100);
+        assert!(k100 < k_max, "{} should sort before {}", k100, k_max);
+    }
+
+    #[tokio::test]
+    async fn rocksdb_journal_snapshot_state_reflects_applied_events() {
+        // After a snapshot is taken, loading it should yield a non-default WorkflowState
+        // because at least one event has been applied. (The previous bug was that the
+        // recovery path never loaded the snapshot at all, so this guards against
+        // regressing back to default state on recovery.)
+        use crate::domain::state::WorkflowState;
+
+        let (_tmp, journal) = temp_rocksdb_journal(2);
+        let session_id = "session-D";
+
+        journal.persist_events(session_id, &[discovered_event("wf-1")]).await.unwrap();
+        journal.persist_events(session_id, &[discovered_event("wf-2")]).await.unwrap();
+
+        let (_, state) = journal.load_snapshot(session_id).await.unwrap().expect("snapshot present");
+        assert!(
+            !matches!(state, WorkflowState::Initial(_)),
+            "snapshot state should reflect applied WorkflowDiscovered events, not be Initial"
+        );
     }
 }
