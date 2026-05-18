@@ -151,5 +151,8 @@
     "enum_enter_custom_value": "Enter custom value for {0}",
     "prompt_select": "Select {0}",
     "prompt_enter": "Enter {0}",
-    "prompt_multi_select": "Select one or more {0}"
+    "prompt_enter_number": "Enter a number for {0}",
+    "prompt_confirm_boolean": "{0}?",
+    "prompt_multi_select": "Select one or more {0}",
+    "error_invalid_number": "'{0}' is not a valid number"
 }

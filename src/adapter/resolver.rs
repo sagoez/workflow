@@ -21,6 +21,17 @@ use crate::{
     t, t_params
 };
 
+/// Parse a default boolean value from the workflow YAML's `default_value: "..."` string.
+/// Recognized true: "true", "yes", "y", "1". Recognized false: "false", "no", "n", "0".
+/// Case-insensitive. Returns None for "~", empty, or unrecognized input.
+fn parse_bool_default(raw: &str) -> Option<bool> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "true" | "yes" | "y" | "1" => Some(true),
+        "false" | "no" | "n" | "0" => Some(false),
+        _ => None
+    }
+}
+
 /// Resolver for workflow arguments - handles user interaction for argument values
 pub struct ArgumentResolver;
 
@@ -60,7 +71,7 @@ impl ArgumentResolver {
                     } else {
                         Self::resolve_static_enum_argument(arg, enum_variants, prompt)
                     }
-                } else if let (Some(enum_command), Some(_enum_name)) = (&arg.enum_command, &arg.enum_name) {
+                } else if let Some(enum_command) = &arg.enum_command {
                     if multi {
                         Self::resolve_dynamic_multi_enum_argument(arg, enum_command, current_values, prompt, executor)
                             .await
@@ -71,10 +82,35 @@ impl ArgumentResolver {
                     Err(ValidationError::EnumMissingConfig(arg.name.clone()).into())
                 }
             }
-            ArgumentType::Text | ArgumentType::Number | ArgumentType::Boolean => {
-                Self::resolve_simple_argument(arg, prompt)
-            }
+            ArgumentType::Text => Self::resolve_simple_argument(arg, prompt),
+            ArgumentType::Number => Self::resolve_number_argument(arg, prompt),
+            ArgumentType::Boolean => Self::resolve_boolean_argument(arg, prompt)
         }
+    }
+
+    /// Resolve a numeric argument. Returns an InputFailed error with a translated
+    /// "not a valid number" message if the input doesn't parse as an f64.
+    fn resolve_number_argument(arg: &WorkflowArgument, prompt: &dyn UserPrompt) -> Result<String, WorkflowError> {
+        let prompt_text = t_params!("prompt_enter_number", &[&arg.name]);
+        let default = arg.default_value.as_deref().filter(|d| !d.is_empty() && *d != "~");
+
+        let raw = prompt.text(&prompt_text, default)?;
+
+        if raw.parse::<f64>().is_ok() {
+            Ok(raw)
+        } else {
+            Err(ValidationError::InputFailed(arg.name.clone(), t_params!("error_invalid_number", &[&raw])).into())
+        }
+    }
+
+    /// Resolve a boolean argument via a yes/no confirm prompt.
+    fn resolve_boolean_argument(arg: &WorkflowArgument, prompt: &dyn UserPrompt) -> Result<String, WorkflowError> {
+        let prompt_text = t_params!("prompt_confirm_boolean", &[&arg.name]);
+        let default = arg.default_value.as_deref().and_then(parse_bool_default).unwrap_or(false);
+
+        let value = prompt.confirm(&prompt_text, default)?;
+
+        Ok(if value { "true".to_string() } else { "false".to_string() })
     }
 
     /// Resolve enum argument with static variants
@@ -413,6 +449,133 @@ mod tests {
 
         let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
         assert_eq!(result.get("items").unwrap(), "a,b,c");
+    }
+
+    fn number_arg(name: &str, default: Option<&str>) -> WorkflowArgument {
+        WorkflowArgument {
+            name:               name.to_string(),
+            description:        format!("{} description", name),
+            arg_type:           ArgumentType::Number,
+            default_value:      default.map(String::from),
+            enum_variants:      None,
+            enum_command:       None,
+            enum_name:          None,
+            dynamic_resolution: None,
+            multi:              false,
+            min_selections:     None,
+            max_selections:     None
+        }
+    }
+
+    fn boolean_arg(name: &str, default: Option<&str>) -> WorkflowArgument {
+        WorkflowArgument {
+            name:               name.to_string(),
+            description:        format!("{} description", name),
+            arg_type:           ArgumentType::Boolean,
+            default_value:      default.map(String::from),
+            enum_variants:      None,
+            enum_command:       None,
+            enum_name:          None,
+            dynamic_resolution: None,
+            multi:              false,
+            min_selections:     None,
+            max_selections:     None
+        }
+    }
+
+    #[tokio::test]
+    async fn resolve_number_argument_accepts_integer() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Text("42".to_string())]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![number_arg("port", None)];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("port").unwrap(), "42");
+    }
+
+    #[tokio::test]
+    async fn resolve_number_argument_accepts_float() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Text("3.14".to_string())]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![number_arg("ratio", None)];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("ratio").unwrap(), "3.14");
+    }
+
+    #[tokio::test]
+    async fn resolve_number_argument_rejects_non_numeric() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Text("abc".to_string())]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![number_arg("port", None)];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn resolve_boolean_argument_true() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Confirm(true)]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![boolean_arg("enabled", None)];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("enabled").unwrap(), "true");
+    }
+
+    #[tokio::test]
+    async fn resolve_boolean_argument_false() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Confirm(false)]);
+        let executor = MockExecutor::new(HashMap::new());
+        let args = vec![boolean_arg("enabled", Some("true"))];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("enabled").unwrap(), "false");
+    }
+
+    #[test]
+    fn parse_bool_default_recognizes_truthy() {
+        for input in ["true", "True", "TRUE", "yes", "y", "1", " true "] {
+            assert_eq!(parse_bool_default(input), Some(true), "input: {:?}", input);
+        }
+    }
+
+    #[test]
+    fn parse_bool_default_recognizes_falsy() {
+        for input in ["false", "False", "no", "n", "0"] {
+            assert_eq!(parse_bool_default(input), Some(false), "input: {:?}", input);
+        }
+    }
+
+    #[test]
+    fn parse_bool_default_returns_none_for_unknown() {
+        for input in ["", "~", "maybe", "tru", "12"] {
+            assert_eq!(parse_bool_default(input), None, "input: {:?}", input);
+        }
+    }
+
+    #[tokio::test]
+    async fn enum_with_command_but_no_enum_name_resolves() {
+        let prompt = MockPrompt::new(vec![MockPromptResponse::Select("ns-a".to_string())]);
+        let mut cmd_responses = HashMap::new();
+        cmd_responses.insert("list-ns".to_string(), Ok("ns-a\nns-b\n".to_string()));
+        let executor = MockExecutor::new(cmd_responses);
+        let args = vec![WorkflowArgument {
+            name:               "namespace".to_string(),
+            description:        "pick".to_string(),
+            arg_type:           ArgumentType::Enum,
+            default_value:      None,
+            enum_variants:      None,
+            enum_command:       Some("list-ns".to_string()),
+            enum_name:          None, // not provided — should still work
+            dynamic_resolution: None,
+            multi:              false,
+            min_selections:     None,
+            max_selections:     None
+        }];
+
+        let result = ArgumentResolver::resolve_workflow_arguments(&args, &prompt, &executor).await.unwrap();
+        assert_eq!(result.get("namespace").unwrap(), "ns-a");
     }
 
     #[tokio::test]
