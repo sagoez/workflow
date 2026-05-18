@@ -1,10 +1,15 @@
 //! Git2 implementation of git ports
 
-use std::{fs, path::Path, sync::Arc};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc
+};
 
 use anyhow::Context;
 use async_trait::async_trait;
 use git2::Repository;
+use uuid::Uuid;
 
 use crate::{
     domain::error::{StorageError, ValidationError, WorkflowError},
@@ -23,6 +28,15 @@ impl Git2Client {
     pub fn new(output: Arc<dyn OutputWriter>) -> Self {
         Self { output }
     }
+
+    /// Pick a fresh sibling path next to `destination` for the temporary clone target.
+    /// Cloning into a sibling (rather than a subdirectory of `destination`) lets us
+    /// keep `destination` intact if the clone fails.
+    fn sibling_temp_path(destination: &Path) -> PathBuf {
+        let stem = destination.file_name().and_then(|n| n.to_str()).unwrap_or("workflow");
+        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+        parent.join(format!(".{}-sync-{}", stem, Uuid::new_v4().simple()))
+    }
 }
 
 #[async_trait]
@@ -33,6 +47,57 @@ impl GitClient for Git2Client {
         destination: &Path,
         options: &CloneOptions
     ) -> Result<String, WorkflowError> {
+        // Clone into a sibling temp dir first so a failed clone doesn't wipe destination.
+        let temp_dir = Self::sibling_temp_path(destination);
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
+        }
+
+        let mut builder = git2::build::RepoBuilder::new();
+
+        if let Some(ssh_key_path) = options.ssh_key.clone() {
+            let mut callbacks = git2::RemoteCallbacks::new();
+            callbacks.credentials(move |_user, _user_from_url, _cred| {
+                let path = std::path::Path::new(&ssh_key_path);
+                git2::Cred::ssh_key("git", None, path, None)
+            });
+            let mut fetch_opts = git2::FetchOptions::new();
+            fetch_opts.remote_callbacks(callbacks);
+            builder.fetch_options(fetch_opts);
+        }
+
+        if let Some(branch) = &options.branch {
+            builder.branch(branch);
+        }
+
+        let uses_ssh = options.ssh_key.is_some();
+        let repo = match builder.clone(url, &temp_dir) {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = fs::remove_dir_all(&temp_dir);
+                let msg = if uses_ssh {
+                    t_params!("git_failed_to_clone_with_ssh_key", &[url, &e.to_string()])
+                } else {
+                    t_params!("git_failed_to_clone_with_default_authentication", &[url, &e.to_string()])
+                };
+                return Err(WorkflowError::Network(msg));
+            }
+        };
+
+        let commit_id_result: Result<String, git2::Error> =
+            repo.head().and_then(|h| h.peel_to_commit()).map(|c| c.id().to_string());
+
+        drop(repo); // release file handles before moving directories on Windows
+
+        let commit_id = match commit_id_result {
+            Ok(id) => id,
+            Err(e) => {
+                let _ = fs::remove_dir_all(&temp_dir);
+                return Err(WorkflowError::Network(e.to_string()));
+            }
+        };
+
+        // Clone succeeded — now make destination ready and move files in.
         if destination.exists() {
             if let Ok(entries) = fs::read_dir(destination) {
                 for entry in entries.flatten() {
@@ -60,57 +125,13 @@ impl GitClient for Git2Client {
                 .map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }
 
-        // Create a temporary directory for cloning
-        let temp_dir = destination.join("temp_clone");
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
-        }
-
-        // Clone based on whether SSH key is provided
-        let repo = if let Some(ssh_key_path) = &options.ssh_key {
-            // Use SSH key for authentication
-            let mut callbacks = git2::RemoteCallbacks::new();
-            callbacks.credentials(move |_user, _user_from_url, _cred| {
-                let path = std::path::Path::new(ssh_key_path);
-                git2::Cred::ssh_key("git", None, path, None)
-            });
-
-            let mut fetch_opts = git2::FetchOptions::new();
-            fetch_opts.remote_callbacks(callbacks);
-
-            let mut builder = git2::build::RepoBuilder::new();
-            builder.fetch_options(fetch_opts);
-
-            // Set branch if specified
-            if let Some(branch) = &options.branch {
-                builder.branch(branch);
-            }
-
-            builder.clone(url, &temp_dir).map_err(|e| {
-                WorkflowError::Network(t_params!("git_failed_to_clone_with_ssh_key", &[url, &e.to_string()]))
-            })?
-        } else {
-            // Use default authentication (SSH agent, HTTPS, etc.)
-            Repository::clone(url, &temp_dir).map_err(|e| {
-                WorkflowError::Network(t_params!(
-                    "git_failed_to_clone_with_default_authentication",
-                    &[url, &e.to_string()]
-                ))
-            })?
-        };
-
-        let head = repo.head().map_err(|e| WorkflowError::Network(e.to_string()))?;
-        let commit = head.peel_to_commit().map_err(|e| WorkflowError::Network(e.to_string()))?;
-        let commit_id = commit.id().to_string();
-
-        // Move all files from the cloned repository to the destination directory
-        // Skip the .git directory and any other hidden files
+        // Move workflow files from the cloned repository to the destination directory.
+        // Skip the .git directory and any other hidden files.
         if let Ok(entries) = fs::read_dir(&temp_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let file_name = path.file_name().unwrap_or_default();
 
-                // Skip .git directory and other hidden files
                 if let Some(name) = file_name.to_str()
                     && name.starts_with('.')
                 {
@@ -132,7 +153,6 @@ impl GitClient for Git2Client {
             }
         }
 
-        // Clean up the temporary directory
         if temp_dir.exists() {
             fs::remove_dir_all(&temp_dir).map_err(|e| WorkflowError::from(StorageError::Io(e.to_string())))?;
         }

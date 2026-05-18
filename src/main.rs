@@ -124,8 +124,7 @@ async fn main() -> Result<(), WorkflowError> {
             submit_command_to_actor_system(&guardian_ref, ListWorkflowsCommand.into(), context).await
         }
         Some(WorkflowCliCommand::File { .. }) => {
-            println!("{}", t!("error_file_workflow_execution_not_yet_implemented_in_actor_system"));
-            Ok(())
+            Err(WorkflowError::Other(t!("error_file_workflow_execution_not_yet_implemented_in_actor_system")))
         }
         None => {
             submit_command_to_actor_system(&guardian_ref, DiscoverWorkflowsCommand.into(), context.clone()).await?;
