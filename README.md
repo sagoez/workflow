@@ -54,10 +54,9 @@ arguments:
 | Type | Description |
 |------|-------------|
 | `Text` | Free text input (default) |
-| `Enum` | Select from static variants or dynamically generated via shell command |
-| `MultiEnum` | Select multiple from a list (joined with `,`) |
-| `Number` | Numeric input |
-| `Boolean` | True/false |
+| `Enum` | Select from static variants or dynamically generated via shell command. Add `multi: true` to allow selecting multiple (values joined with `,`) |
+| `Number` | Numeric input (validated) |
+| `Boolean` | Yes/no confirm |
 
 ### Dynamic Enums
 

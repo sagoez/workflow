@@ -10,8 +10,7 @@ Arguments are the interactive prompts users fill in when running a workflow. The
 | Type | What it does |
 |------|-------------|
 | `Text` | Free text input (this is the default) |
-| `Enum` | Pick one from a list |
-| `MultiEnum` | Pick multiple from a list |
+| `Enum` | Pick one (or many, with `multi: true`) from a list |
 | `Number` | Numeric input |
 | `Boolean` | Yes/no toggle |
 
@@ -76,13 +75,14 @@ Pick a namespace → the pod list updates to show only pods in that namespace.
 
 ---
 
-## MultiEnum
+## Multi-select Enums
 
-Select multiple items. Values get joined with `,` and substituted as a single string.
+Set `multi: true` on an `Enum` argument to let the user pick multiple values. Selections get joined with `,` and substituted as a single string.
 
 ```yaml
 - name: services
-  arg_type: MultiEnum
+  arg_type: Enum
+  multi: true
   description: "Services to deploy"
   enum_variants:
     - "api"
@@ -93,7 +93,7 @@ Select multiple items. Values get joined with `,` and substituted as a single st
   max_selections: 3
 ```
 
-Selecting `api`, `web`, and `worker` resolves to `api,web,worker` in the command.
+Selecting `api`, `web`, and `worker` resolves to `api,web,worker` in the command. Both `enum_variants` and `enum_command` work with `multi: true`.
 
 ---
 
@@ -103,10 +103,11 @@ Selecting `api`, `web`, and `worker` resolves to `api,web,worker` in the command
 |-------|----------|-------------|
 | `name` | Yes | Variable name used in `{{placeholders}}` |
 | `description` | Yes | Prompt text shown to the user |
-| `arg_type` | No | `Text`, `Enum`, `MultiEnum`, `Number`, or `Boolean` |
-| `default_value` | No | Pre-filled value for text inputs |
+| `arg_type` | No | `Text`, `Enum`, `Number`, or `Boolean` |
+| `default_value` | No | Pre-filled value for text/number inputs, or initial selection for booleans (`true`/`false`/`yes`/`no`/`1`/`0`) |
 | `enum_variants` | No | Hardcoded list of options |
 | `enum_command` | No | Shell command that outputs options (one per line) |
 | `dynamic_resolution` | No | Name of another argument to resolve first |
-| `min_selections` | No | Minimum picks for `MultiEnum` |
-| `max_selections` | No | Maximum picks for `MultiEnum` |
+| `multi` | No | When `true` on an `Enum`, lets the user pick multiple values (joined with `,`) |
+| `min_selections` | No | Minimum picks for `Enum` with `multi: true` |
+| `max_selections` | No | Maximum picks for `Enum` with `multi: true` |

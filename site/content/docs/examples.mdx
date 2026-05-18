@@ -103,7 +103,7 @@ Pick a namespace → pods in that namespace load → pick a pod → containers i
 
 ---
 
-## Git — MultiEnum Selection
+## Git — Multi-select Enum
 
 Select multiple commits to cherry-pick from another branch.
 
@@ -120,7 +120,8 @@ arguments:
     enum_command: "git branch --format='%(refname:short)'"
 
   - name: commits
-    arg_type: MultiEnum
+    arg_type: Enum
+    multi: true
     description: "Commits to cherry-pick"
     enum_command: "git log {{branch}} --oneline -20 | awk '{print $1}'"
     dynamic_resolution: "branch"
