@@ -280,9 +280,11 @@ impl Journal for RocksDbJournal {
         tokio::task::spawn_blocking(move || -> Result<(), WorkflowError> {
             let key = format!("journal:{}", session_id);
 
+            // `persist_events` writes `Vec<AggregateEvent>`; round-trip the same type so the
+            // wrapper (and its metadata) isn't silently dropped on rewrite.
             match db.get(key.as_bytes()) {
                 Ok(Some(data)) => {
-                    let mut events: Vec<WorkflowEvent> = serde_json::from_slice(&data).map_err(|e| {
+                    let mut events: Vec<AggregateEvent> = serde_json::from_slice(&data).map_err(|e| {
                         StorageError::Serialization(format!("Failed to deserialize journal events: {}", e))
                     })?;
 
