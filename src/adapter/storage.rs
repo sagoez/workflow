@@ -3,7 +3,11 @@
 //! This module provides both in-memory and persistent (RocksDB) implementations
 //! of the EventStore trait.
 
-use std::{collections::{BTreeSet, HashMap}, path::Path, sync::Arc};
+use std::{
+    collections::{BTreeSet, HashMap},
+    path::Path,
+    sync::Arc
+};
 
 use async_trait::async_trait;
 use rocksdb::{DB, Options};
