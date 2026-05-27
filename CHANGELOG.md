@@ -1,4 +1,27 @@
-## [unreleased]
+## [0.4.4] - 2026-05-27
+
+### 🚀 Features
+
+- Chooser hints, copy-to-clipboard confirm, required multi-select
+- Proper Number/Boolean resolution and drop unused enum_name requirement
+
+### 🐛 Bug Fixes
+
+- Don't wipe workflows on failed sync, apply --branch over HTTPS, fail on unimplemented wf file
+- Load snapshot state on recovery and zero-pad snapshot keys
+- *(site)* Pin eslint to ^9.0.0 to match eslint-config-next 16.2.1
+- *(journal)* Delete_events round-trips Vec<AggregateEvent>, not WorkflowEvent
+
+### 📚 Documentation
+
+- Replace vault.sagoez.com links with GitHub repo
+- Remove non-existent MultiEnum, document Enum multi:true
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump dependency versions
+- Fix format
+## [0.4.3] - 2026-03-29
 
 ### 🐛 Bug Fixes
 
@@ -9,6 +32,7 @@
 
 - Bump version to 0.4.2
 - Skip changelog update commits from changelog
+- Bump version to 0.4.3
 ## [0.4.2] - 2026-03-29
 
 ### 🚀 Features
