@@ -3,9 +3,20 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish
+        required: true
+        type: string
 
 permissions:
   contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -18,26 +29,56 @@ jobs:
 
       - name: Check version change
         id: version
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
         run: |
           NEW=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-          OLD=$(git show HEAD~1:Cargo.toml | grep '^version' | head -1 | sed 's/.*"\(.*\)"/\1/')
-          if [ "$NEW" != "$OLD" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "version=$NEW" >> $GITHUB_OUTPUT
+
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$DISPATCH_VERSION" != "$NEW" ]; then
+              echo "Requested version $DISPATCH_VERSION does not match Cargo.toml version $NEW" >&2
+              exit 1
+            fi
+
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$NEW" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: Install git-cliff
-        if: steps.version.outputs.changed == 'true'
-        run: cargo install git-cliff
+          OLD=$(git show HEAD~1:Cargo.toml | grep '^version' | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ "$NEW" != "$OLD" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Generate release notes
+      - uses: dtolnay/rust-toolchain@stable
         if: steps.version.outputs.changed == 'true'
-        id: notes
+
+      - name: Install system dependencies
+        if: steps.version.outputs.changed == 'true'
         run: |
-          git cliff --latest --strip header > /tmp/release-notes.md
+          sudo apt-get update
+          sudo apt-get install -y clang llvm-dev libclang-dev
+
+      - name: Authenticate with crates.io
+        if: steps.version.outputs.changed == 'true'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish to crates.io
+        if: steps.version.outputs.changed == 'true'
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
       - name: Create release
         if: steps.version.outputs.changed == 'true'
-        run: gh release create "v${{ steps.version.outputs.version }}" --title "v${{ steps.version.outputs.version }}" --notes-file /tmp/release-notes.md
+        run: |
+          VERSION="v${{ steps.version.outputs.version }}"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists"
+          else
+            gh release create "$VERSION" --title "$VERSION" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
