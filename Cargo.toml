@@ -37,7 +37,7 @@ tera = "2.1"
 thiserror = "2.0.16"
 tokio = { version = "1.52", features = ["full"] }
 tokio-util = "0.7"
-ractor = { version = "0.15", features = ["cluster", "monitors", "serde", "async-trait"] }
+ractor = { version = "0.16", features = ["cluster", "monitors", "serde", "async-trait"] }
 tracing = "0.1"
 uuid = { version = "1.23", features = ["v4"] }
 whoami = "2.1"
