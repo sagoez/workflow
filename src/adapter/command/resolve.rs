@@ -35,15 +35,18 @@ pub fn validate_all_resolved(
 
 /// Render a command template with resolved arguments using Tera.
 /// Replaces `{{ var }}` placeholders with their values.
+///
+/// Autoescaping is off: these render shell commands, where HTML-escaping quotes
+/// and `&`/`<`/`>` would corrupt the command.
 pub fn render_command_template(template: &str, resolved: &HashMap<String, String>) -> Result<String, WorkflowError> {
-    let mut tera = tera::Tera::default();
+    let tera = tera::Tera::default();
     let mut context = tera::Context::new();
 
     for (key, value) in resolved {
-        context.insert(key, value);
+        context.insert(key.clone(), value);
     }
 
-    tera.render_str(template, &context).map_err(|e| {
+    tera.render_str(template, &context, false).map_err(|e| {
         WorkflowError::from(ValidationError::InvalidState(t_params!(
             "error_failed_to_render_command_template",
             &[&e.to_string()]
@@ -213,6 +216,17 @@ mod tests {
 
         let result = render_command_template("echo {{ name }} {{ count }}", &resolved).unwrap();
         assert_eq!(result, "echo world 3");
+    }
+
+    /// Shell metacharacters must survive rendering verbatim. Tera's autoescape would
+    /// turn them into HTML entities and silently corrupt every command using them.
+    #[test]
+    fn render_template_does_not_escape_shell_metacharacters() {
+        let mut resolved = HashMap::new();
+        resolved.insert("msg".to_string(), r#"a "quoted" & <redirected> 'value'"#.to_string());
+
+        let result = render_command_template("echo {{ msg }}", &resolved).unwrap();
+        assert_eq!(result, r#"echo a "quoted" & <redirected> 'value'"#);
     }
 
     #[test]
