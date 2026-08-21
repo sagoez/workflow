@@ -11,7 +11,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "fumadocs-core": "16.14.4",
+    "fumadocs-core": "16.15.0",
     "fumadocs-mdx": "15.2.3",
     "fumadocs-ui": "16.14.4",
     "lucide-react": "^1.31.0",
